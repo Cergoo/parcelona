@@ -1,8 +1,12 @@
 [package]
-name = "parselona"
+name = "parcelona"
 version = "0.1.0"
-authors = ["prof"]
+authors = ["Cergoo"]
 edition = "2021"
+description = "minimalistic elegance parser combinator library"
+license = "GNU General Public License v3.0"
+repository = "https://github.com/Cergoo/parcelona"
+categories = ["parsing"]
 
 [dev-dependencies]
 atoi = "2.0.0"

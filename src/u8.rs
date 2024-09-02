@@ -1,4 +1,4 @@
-//// Predicates begin
+//! u8 implementation
 
 pub const EOL: u8 = 10;  
 pub const EOL2: [u8; 2] = [13,10];   //  \r\n

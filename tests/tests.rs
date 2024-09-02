@@ -1,5 +1,5 @@
-use parselona::parser_combinators::{*};
-use parselona::u8::{*};
+use parcelona::parser_combinators::{*};
+use parcelona::u8::{*};
 use atoi::FromRadix16;
 
 #[test]

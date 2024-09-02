@@ -1,4 +1,4 @@
-//! Crate parser combinator library.
+//!  Parcelona minimalistic elegance parser combinator library.
 //!
 
 pub type ParseResult<'a,I,O> = std::result::Result<(&'a [I],O),&'a [I]>;
