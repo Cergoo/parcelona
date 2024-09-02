@@ -76,7 +76,7 @@ where
 }}
 
 
-//! combinators
+// combinators
 
 /// combinator map
 pub fn map<'a,T:'a,F,P,R1,R2>(parser: P, map_fn: F) -> impl Parser<'a,T,R2>+Clone

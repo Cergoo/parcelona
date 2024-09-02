@@ -1,5 +1,6 @@
 use parselona::parser_combinators::{*};
 use parselona::u8::{*};
+use atoi::FromRadix16;
 
 #[test]
 fn t1() {
@@ -76,4 +77,27 @@ let p = search_it.more(NO_ZERO).parse(data);
 
 assert_eq!(Ok((" mnbnm mnmn/r/n nbn".as_bytes(),Vec::from(["12".as_bytes(), "2".as_bytes(), "1".as_bytes()]))), p);
 }
+
+#[test]
+fn t_color() {
+#[derive(Debug, PartialEq)]
+pub struct Color {
+  pub red: u8,
+  pub green: u8,
+  pub blue: u8,
+}
+
+let input = "#2F14DF".as_bytes();
+
+let hex_color = take(seq(is_hex_digit,SeqCount::Exact(2)));
+let (input,_) = take(starts_with(b"#")).parse(input).unwrap();
+let (input,c) = hex_color.more(NO_ZERO).parse(input).unwrap();
+let (r,_) = u8::from_radix_16(c[0]);
+let (g,_) = u8::from_radix_16(c[1]);
+let (b,_) = u8::from_radix_16(c[2]);
+let color = Color{ red:r, green:g, blue:b };
+
+assert_eq!(Color{red: 47, green: 20, blue: 223}, color);
+}
+
 
