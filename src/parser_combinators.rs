@@ -23,7 +23,7 @@ where
 /// parser 'take', this is a single parser, but it can be parameterized by functions.
 pub fn take<'a,T,P>(predicat: P) -> impl Parser<'a,T,&'a[T]>+Clone
 where
-     T: 'a + std::fmt::Debug + Sized,
+     T: 'a,
      P: Fn(&'a[T]) -> usize + Clone,
 {     
     move |input: &'a[T]| {
