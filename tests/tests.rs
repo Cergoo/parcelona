@@ -100,4 +100,10 @@ let color = Color{ red:r, green:g, blue:b };
 assert_eq!(Color{red: 47, green: 20, blue: 223}, color);
 }
 
+#[test]
+fn t_exact() {
+let data="bb".as_bytes();
+let p = take(seq(is_any,SeqCount::Exact(3))).parse(data).ok();  
+assert_eq!(None, p);
+}
 
