@@ -7,6 +7,8 @@ description = "minimalistic elegance parser combinator library"
 license = "MIT"
 repository = "https://github.com/Cergoo/parcelona"
 categories = ["parsing"]
+documentation = "https://docs.rs/parcelona"
+readme = "README.md"
 
 [dev-dependencies]
 atoi = "2.0.0"
