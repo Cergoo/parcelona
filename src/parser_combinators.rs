@@ -35,7 +35,7 @@ where
 
 /// function 'any' for parametrize parser
 pub fn any<'a,T:'a+Eq+Clone>(pattern: &'a[T]) -> impl Fn(&'a[T]) -> usize+'a+Clone {
-    |input| { if pattern.contains(&input[0]) { 1 } else { 0 } }
+    |input| { if input.len()>0 && pattern.contains(&input[0]) { 1 } else { 0 } }
 }
 
 /// function 'starts_with' for parametrize parser
@@ -68,9 +68,9 @@ where
     let mut c:usize = 0;
     match count {
         SeqCount::None   =>      for i in input { if p(i)      {c+=1;} else {break;} },
-        SeqCount::Max(x) =>      for i in input { if p(i)&&c<x {c+=1;} else {break;} },
-        SeqCount::Exact(x) =>    for i in input { if p(i)&&c<x {c+=1;} else {if c!=x {c=0;}; break;} },
-        SeqCount::Range((x,y))=> for i in input { if p(i)&&c<y {c+=1;} else {if c<x  {c=0;}; break;} },
+        SeqCount::Max(x) =>      for i in input { if c<x&&p(i) {c+=1;} else {break;} },
+        SeqCount::Exact(x) =>    for i in input { if c<x&&p(i) {c+=1;} else {if c!=x {c=0;}; break;} },
+        SeqCount::Range((x,y))=> for i in input { if c<y&&p(i) {c+=1;} else {if c<x  {c=0;}; break;} },
     }
     c
 }}
