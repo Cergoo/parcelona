@@ -12,6 +12,8 @@ readme = "README.md"
 
 [dev-dependencies]
 atoi = "2.0.0"
+byteorder = "1.5.0"
+
 
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

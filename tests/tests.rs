@@ -107,3 +107,11 @@ let p = take(seq(is_any,SeqCount::Exact(3))).parse(data).ok();
 assert_eq!(None, p);
 }
 
+#[test]
+fn t_exact1() {
+use byteorder::{ByteOrder, BE}; 
+let data = [4, 7];
+let p = map(take(seq(is_any,SeqCount::Exact(3))),|x|{BE::read_u24(x) as usize});
+assert_eq!(None, p.parse(&data).ok());
+}
+   
