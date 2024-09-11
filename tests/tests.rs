@@ -1,5 +1,6 @@
 use parcelona::parser_combinators::{*};
 use parcelona::u8::{*};
+use parcelona::u8ext::{*};
 use atoi::FromRadix16;
 
 #[test]
@@ -19,24 +20,24 @@ let d = (" CONNECT linkedin.com 1/2/4".as_bytes(),
    
 #[test]
 fn t2() {    
-let p=left_opt(take(seq(is_alpha_upper,SeqCount::Exact(3))), take(seq(is_space,SeqCount::None)));
-let r=p.parse(b"GET HTTttp");
-assert_eq!(Ok(("HTTttp".as_bytes(),"GET".as_bytes())), r);
+    let p=left_opt(take(seq(is_alpha_upper,SeqCount::Exact(3))), take(seq(is_space,SeqCount::None)));
+    let r=p.parse(b"GET HTTttp");
+    assert_eq!(Ok(("HTTttp".as_bytes(),"GET".as_bytes())), r);
 }
 
 #[test]
 fn t3() {    
-let p=take(seq(is_alpha_upper,SeqCount::None)).option();
-let r=p.parse(b"GET HTTttp");
-assert_eq!(Ok((" HTTttp".as_bytes(),Some("GET".as_bytes()))), r);
+    let p=take(seq(is_alpha_upper,SeqCount::None)).option();
+    let r=p.parse(b"GET HTTttp");
+    assert_eq!(Ok((" HTTttp".as_bytes(),Some("GET".as_bytes()))), r);
 }
 
 #[test]
 fn t_find() {
-let data="mnb mnbmb bmnm jkmn CONNECT: 1 mnbnm mnmn/r/n nbn".as_bytes();     
-let parser=find(take(seq(is_no_eol,SeqCount::Exact(1))),take(starts_with(b"CONNECT")));
-let result=parser.parse(data);
-assert_eq!(Ok((": 1 mnbnm mnmn/r/n nbn".as_bytes(),"CONNECT".as_bytes())), result);
+    let data="mnb mnbmb bmnm jkmn CONNECT: 1 mnbnm mnmn/r/n nbn".as_bytes();     
+    let parser=find(take(seq(is_no_eol,SeqCount::Exact(1))),take(starts_with(b"CONNECT")));
+    let result=parser.parse(data);
+    assert_eq!(Ok((": 1 mnbnm mnmn/r/n nbn".as_bytes(),"CONNECT".as_bytes())), result);
 }
 
 #[test]
@@ -109,9 +110,15 @@ assert_eq!(None, p);
 
 #[test]
 fn t_exact1() {
-use byteorder::{ByteOrder, BE}; 
-let data = [4, 7];
-let p = map(take(seq(is_any,SeqCount::Exact(3))),|x|{BE::read_u24(x) as usize});
-assert_eq!(None, p.parse(&data).ok());
+    use byteorder::{ByteOrder, BE}; 
+    let data = [4, 7];
+    let p = map(take(seq(is_any,SeqCount::Exact(3))),|x|{BE::read_u24(x) as usize});
+    assert_eq!(None, p.parse(&data).ok());
 }
-   
+
+#[test]
+fn t_u8ext() { 
+    let data: &[u8] = &[0, 2, 8, 9, 0, 2, 7, 8];
+    let p = pair(take_record_be_u16, take_record_be_u16);
+    assert_eq!(Some(([].as_slice(), ([8_u8,9].as_slice(), [7_u8,8].as_slice()))), p.parse(&data).ok());
+}
