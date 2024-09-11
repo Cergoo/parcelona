@@ -28,4 +28,6 @@ assert_eq!(Color{red: 47, green: 20, blue: 223}, color);
 }
 ```
 
+how to parse utf8 &str ? use crate [unicode-segmentation](https://github.com/unicode-rs/unicode-segmentation)
+
 
