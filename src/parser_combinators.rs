@@ -4,7 +4,7 @@
 pub type ParseResult<'a,I,O> = std::result::Result<(&'a [I],O),&'a [I]>;
  
 /// Main parser definition
-pub trait Parser<'a,I,O>:  {
+pub trait Parser<'a,I,O> {
     fn parse(&self, input:&'a [I]) -> ParseResult<'a,I,O>;
     fn option(self) -> impl Parser<'a,I,Option<O>> + Clone;
     fn more(self,no_zero:bool) -> impl Parser<'a,I,Vec<O>> + Clone;    
@@ -19,8 +19,45 @@ where
     fn more(self,no_zero:bool) -> impl Parser<'a,I,Vec<O>>+Clone { more(self,no_zero) }
 }
 
+/// Alt trait combinator
+pub trait Alt<'a,I:'a,O> {
+    fn choice(&self, input:&'a [I]) -> ParseResult<'a,I,O>;
+}
 
-/// parser 'take', this is a single parser, but it can be parameterized by functions.
+impl<'a,I:'a,O,P1,P2> Alt<'a,I,O> for (P1,P2)
+where
+    P1: Parser<'a,I,O>,
+    P2: Parser<'a,I,O>,
+   // I: Clone,
+{
+    fn choice(&self, input: &'a[I]) -> ParseResult<'a,I,O> {
+        self.0.parse(input).or(self.1.parse(input))
+    }
+}
+
+impl<'a,I:'a,O,P1,P2,P3> Alt<'a,I,O> for (P1,P2,P3)
+where
+    P1: Parser<'a,I,O>,
+    P2: Parser<'a,I,O>,
+    P3: Parser<'a,I,O>,
+{
+    fn choice(&self, input: &'a[I]) -> ParseResult<'a,I,O> {
+        self.0.parse(input).or(self.1.parse(input)).or(self.2.parse(input))
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+/// parser 'take', this is firs parser, but it can be parameterized by functions.
 pub fn take<'a,T,P>(predicat: P) -> impl Parser<'a,T,&'a[T]>+Clone
 where
      T: 'a,
@@ -33,17 +70,23 @@ where
     }    
 }
 
-/// function 'any' for parametrize parser
+/// parser `data end` this is second parser, it detect end of data.
+/// there are no other parsers, only `take` and `data_end` 
+pub fn data_end<T>(a:&[T]) -> Result<(&[T],&[T]), &[T]> {
+    if a.len() > 0 {  Err(a) } else { Ok((a,a)) }
+}
+
+/// function 'any' for parametrize parser `take`
 pub fn any<'a,T:'a+Eq+Clone>(pattern: &'a[T]) -> impl Fn(&'a[T]) -> usize+'a+Clone {
     |input| { if input.len()>0 && pattern.contains(&input[0]) { 1 } else { 0 } }
 }
 
-/// function 'starts_with' for parametrize parser
+/// function 'starts_with' for parametrize parser `take`
 pub fn starts_with<'a,T:'a+Eq+Clone>(pattern: &'a[T]) -> impl Fn(&'a[T]) -> usize+'a+Clone {
     |input| { if input.starts_with(pattern) { pattern.len() } else { 0 } }
 }
 
-/// function 'starts_with_any' for parametrize parser
+/// function 'starts_with_any' for parametrize parser `take`
 pub fn starts_with_any<'a,T:'a+Eq+Clone>(pattern: &'a[&'a[T]]) -> impl Fn(&'a[T]) -> usize+'a+Clone {
     move |input| {
         for i in pattern {  if input.starts_with(i) { return pattern.len() }; };
@@ -60,23 +103,41 @@ pub fn starts_with_any<'a,T:'a+Eq+Clone>(pattern: &'a[&'a[T]]) -> impl Fn(&'a[T]
     None,    
 }
 
-/// function 'seq'-sequence for parametrize parser
+/// function 'seq'-sequence for parametrize parser `take`
 pub fn seq<'a,P,T:'a+Eq+Clone>(p: P, count:SeqCount) -> impl Fn(&'a[T]) -> usize+'a+Clone
 where
     P: Fn(& T) -> bool+Clone+'a,
 { move |input| {
     let mut c:usize = 0;
     match count {
-        SeqCount::None   =>        for i in input { if p(i)      {c+=1;} else {break;} },
-        SeqCount::Max(x) =>        for i in input { if c<x&&p(i) {c+=1;} else {break;} },
-        SeqCount::Exact(x) =>    { for i in input { if c<x&&p(i) {c+=1;} else {break;} } if c!=x {c=0;}; },
+        SeqCount::None        =>   for i in input { if p(i)      {c+=1;} else {break;} },
+        SeqCount::Max(x)      =>   for i in input { if c<x&&p(i) {c+=1;} else {break;} },
+        SeqCount::Exact(x)    => { for i in input { if c<x&&p(i) {c+=1;} else {break;} } if c!=x {c=0;}; },
         SeqCount::Range((x,y))=> { for i in input { if c<y&&p(i) {c+=1;} else {break;} } if c<x  {c=0;}; },
     }
     c
 }}
 
+/// `not` closur for `seq` a func parametr. not(predicat)
+pub fn not<T>(f: impl Fn(& T) -> bool+Clone) -> impl Fn(& T) -> bool+Clone 
+{ move |x| !f(x) }
 
-// combinators
+
+
+
+/// combinators
+
+/// combinator not(parser)
+pub fn notp<'a,T:'a,P,R>(parser: P) -> impl Parser<'a,T,()>+Clone
+where
+    P: Parser<'a,T,R>+Clone,
+{
+    move |input| {
+        match parser.parse(input) {
+            Ok(_) => Err(input),
+            _     => Ok((input,())),
+    }}
+}
 
 /// combinator map
 pub fn map<'a,T:'a,F,P,R1,R2>(parser: P, map_fn: F) -> impl Parser<'a,T,R2>+Clone
@@ -130,7 +191,7 @@ where
     P1: Parser<'a,T,R1>+Clone,
     P2: Parser<'a,T,R2>+Clone,
 {
-   map(pair(p1,p2),|(_,r)|r)
+    map(pair(p1,p2),|(_,r)|r)
 }
 
 /// combinator right 'left'-is options, if left returns Error it is ignored
@@ -153,10 +214,10 @@ where
 {
     move |input| {
         p1.parse(input).map(|(next_input, r1)| {
-           match p2.parse(next_input) {
-               Ok((next_input,_)) => (next_input,r1),
-               _                  => (next_input,r1),
-           }    
+            match p2.parse(next_input) {
+                Ok((next_input,_)) => (next_input,r1),
+                _                  => (next_input,r1),
+            }    
         })
     }
 }
@@ -199,21 +260,9 @@ where
     }
 }
 
-/// combinator alt
-pub fn alt<'a,T:'a,P,R>(p:&'a[P]) -> impl Parser<'a,T,R>+Clone
-where
-    P: Parser<'a,T,R>+Clone,
-{
-    move |input: &'a[T]| {
-       for x in p {
-         let result = x.parse(input);
-         match result {
-             Ok(_) => { return result; },
-             _     => { continue; },
-         }
-       }
-       Err(input)
-    }
+/// alt combinator
+pub fn alt<'a,I:'a,O,T:Alt<'a,I,O>+Clone>(input: T) -> impl Parser<'a,I,O>+Clone {
+    move |i| input.choice(i)
 }
 
 /// combinator separated pair
@@ -223,7 +272,63 @@ where
     P2: Parser<'a,T,R2>+Clone,
     P_: Parser<'a,T,R_>+Clone,
 {
-       pair(left(p1,sep),p2)   
+    pair(left(p1,sep),p2)   
+}
+
+/// combinator element between
+pub fn between<'a,T:'a,P1,P,P2,R1,R,R2>(p1:P1,p:P,p2:P2) -> impl Parser<'a,T,R>+Clone
+where
+    P1: Parser<'a,T,R1>+Clone,
+    P: Parser<'a,T,R>+Clone,
+    P2: Parser<'a,T,R2>+Clone,
+{
+    left(right(p1,p),p2)   
+}
+
+/// combinator element between optional
+pub fn between_opt<'a,T:'a,P1,P,P2,R1,R,R2>(p1:P1,p:P,p2:P2) -> impl Parser<'a,T,R>+Clone
+where
+    P1: Parser<'a,T,R1>+Clone,
+    P: Parser<'a,T,R>+Clone,
+    P2: Parser<'a,T,R2>+Clone,
+{
+    left_opt(right_opt(p1,p),p2)   
+}
+
+/// combinator and_then
+pub fn and_then<'a,T:'a,P1,P2,R1,R2,F,R3>(p1:P1,p2:P2,f:F) -> impl Parser<'a,T,R3>+Clone
+where
+    P1: Parser<'a,T,R1>+Clone,
+    P2: Parser<'a,T,R2>+Clone,
+    F: Fn((R1,R2)) -> R3+Clone,
+{
+    map(pair(p1,p2),f)
+}
+
+
+/// combinator separated list
+///1) h, h, h, h hh
+///   ----------
+///2) h, h, h, hh hhh
+///   --------
+///3) h, h, h, hb hhh
+///   --------
+///4) h, h, h h
+///   -------
+pub fn sep_list<'a,T:'a,Pe,Re,Ps,Rs,Ple>(elem:Pe,sep:Ps,last_elem:Ple) -> impl Parser<'a,T,Vec<Re>>+Clone
+where
+    Pe:  Parser<'a,T,Re>+Clone,
+    Ps:  Parser<'a,T,Rs>+Clone,
+    Ple: Parser<'a,T,Re>+Clone,
+{
+    and_then(
+        more(left(elem,sep),ZERO), 
+        last_elem.option(), 
+        |(mut a,b)| {
+            match b {
+                Some(x) => {a.push(x); a},
+                None    => a,
+        }})   
 }
 
 /// just usefull function
@@ -232,10 +337,15 @@ pub fn split_at_revers<'a, T>(input: &'a [T], count: usize) -> (&'a [T], &'a [T]
     (&input[count..], &input[..count])
 }
 
+/// fust useful function
+pub fn fflaten<T:Copy>(v:Vec<&[T]>) -> Vec<T> {
+    v.into_iter().flatten().map(|x|*x).collect::<Vec<T>>()
+}
+
+
 // just drop all parser result
 fn drop<I>(_: I) -> () {
     ()
 }
-
 
 
