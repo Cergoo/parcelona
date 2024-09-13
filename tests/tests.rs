@@ -88,7 +88,7 @@ fn t_alt() {
 
     let s1 = take(seq(is_any,SeqCount::Exact(1)));  
     let s2 = take(seq(is_any,SeqCount::Exact(2))); 
-    let (i,r) = (s2,s1).choice(data).unwrap();
+    let (_i,r) = (s2,s1).choice(data).unwrap();
     assert_eq!(r, b"b:");
     ()
 }
@@ -106,7 +106,7 @@ let input = "#2F14DF".as_bytes();
 
 let hex_color = take(seq(is_hex_digit,SeqCount::Exact(2)));
 let (input,_) = take(starts_with(b"#")).parse(input).unwrap();
-let (input,c) = hex_color.more(NO_ZERO).parse(input).unwrap();
+let (_input,c) = hex_color.more(NO_ZERO).parse(input).unwrap();
 let (r,_) = u8::from_radix_16(c[0]);
 let (g,_) = u8::from_radix_16(c[1]);
 let (b,_) = u8::from_radix_16(c[2]);
@@ -143,43 +143,43 @@ fn t_sep_list() {
     let element = take(seq(is_alpha,SeqCount::Exact(1)));  
     let separ   = take(starts_with(b","));  
     let list = sep_list( 
-            between_opt(space.clone(),element.clone(),space.clone()),
+            between_opt(space,element,space),
             separ,
-            left(right_opt(space.clone(),element.clone()), alt((space, data_end))),
+            left(right_opt(space,element), (space,data_end).alt()),
         );
 
     let data: &[u8] = b"h , h , h , h hh";
-    let (i,r) = list.parse(&data).unwrap();
+    let (_i,r) = list.parse(&data).unwrap();
     let r: Vec<u8> = fflaten(r);
     assert_eq!(b"hhhh".to_vec(), r);
 
     let data: &[u8] = b"h , h , h , hhh";
-    let (i,r) = list.parse(&data).unwrap();
+    let (_i,r) = list.parse(&data).unwrap();
     let r: Vec<u8> = fflaten(r);
     assert_eq!(b"hhh".to_vec(), r);
 
     let data: &[u8] = b"h , h , h h hh";
-    let (i,r) = list.parse(&data).unwrap();
+    let (_i,r) = list.parse(&data).unwrap();
     let r: Vec<u8> = fflaten(r);
     assert_eq!(b"hhh".to_vec(), r);
 
     let data: &[u8] = b"h , h , h";
-    let (i,r) = list.parse(&data).unwrap();
+    let (_i,r) = list.parse(&data).unwrap();
     let r: Vec<u8> = fflaten(r);
     assert_eq!(b"hhh".to_vec(), r);
 
     let data: &[u8] = b"h , h , h ,";
-    let (i,r) = list.parse(&data).unwrap();
+    let (_i,r) = list.parse(&data).unwrap();
     let r: Vec<u8> = fflaten(r);
     assert_eq!(b"hhh".to_vec(), r);
 
     let data: &[u8] = b" h ";
-    let (i,r) = list.parse(&data).unwrap();
+    let (_i,r) = list.parse(&data).unwrap();
     let r: Vec<u8> = fflaten(r);
     assert_eq!(b"h".to_vec(), r);
 
     let data: &[u8] = b" h , ";
-    let (i,r) = list.parse(&data).unwrap();
+    let (_i,r) = list.parse(&data).unwrap();
     let r: Vec<u8> = fflaten(r);
     assert_eq!(b"h".to_vec(), r);
 }
