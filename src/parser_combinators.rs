@@ -4,10 +4,11 @@
 pub type ParseResult<'a,I,O> = std::result::Result<(&'a [I],O),&'a [I]>;
  
 /// Main parser definition
-pub trait Parser<'a,I,O>: Copy {
+pub trait Parser<'a,I:'a,O>: Copy {
     fn parse(&self, input:&'a [I]) -> ParseResult<'a,I,O>;
-    fn option(self) -> impl Parser<'a,I,Option<O>>;
-    fn more(self,no_zero:bool) -> impl Parser<'a,I,Vec<O>>;    
+    fn option(self) -> impl Parser<'a,I,Option<O>> { option(self) }
+    fn more(self,no_zero:bool) -> impl Parser<'a,I,Vec<O>> { more(self,no_zero) }
+    fn not(self) -> impl Parser<'a,I,()> { not(self) }
 }
 
 impl<'a,I:'a,F,O> Parser<'a,I,O> for F
@@ -15,8 +16,6 @@ where
     F: Fn(&'a[I]) -> ParseResult<'a,I,O>+Copy,
 {
     fn parse(&self, input:&'a [I]) -> ParseResult<'a,I,O> {  self(input)  }
-    fn option(self) -> impl Parser<'a,I,Option<O>> { option(self) }
-    fn more(self,no_zero:bool) -> impl Parser<'a,I,Vec<O>> { more(self,no_zero) }
 }
 
 /// Alt trait combinator
@@ -49,10 +48,15 @@ where
 }
 
 
+// 
+#[cfg(feature = "alt_tuple_32")]
+macros_derive::alt_impl!(32);  
 
+#[cfg(all(feature = "alt_tuple_64", not(feature = "alt_tuple_32")))] 
+macros_derive::alt_impl!(64);  
 
-
-
+#[cfg(not(any(feature = "alt_tuple_32", feature = "alt_tuple_64")))]
+macros_derive::alt_impl!(16);  //max 255
 
 
 
@@ -120,8 +124,8 @@ where
     c
 }}
 
-/// `not` closur for `seq` a func parametr. not(predicat)
-pub fn not<T>(f: impl Fn(& T) -> bool) -> impl Fn(& T) -> bool
+/// `notp` closur for `seq` a func parametr. notp(predicat)
+pub fn notp<T>(f: impl Fn(& T) -> bool) -> impl Fn(& T) -> bool
 { move |x| !f(x) }
 
 
@@ -130,7 +134,7 @@ pub fn not<T>(f: impl Fn(& T) -> bool) -> impl Fn(& T) -> bool
 /// combinators
 
 /// combinator not(parser)
-pub fn notp<'a,T:'a,P,R>(parser: P) -> impl Parser<'a,T,()>
+pub fn not<'a,T:'a,P,R>(parser: P) -> impl Parser<'a,T,()>
 where
     P: Parser<'a,T,R>,
 {
@@ -233,8 +237,9 @@ where
 {
     move |input: &'a[T]| {
         let mut next_input1 = input;
+        let mut r: ParseResult<'a,T,R2>; 
         while let Ok((next_input2,_)) = step.parse(next_input1) {
-            let r = p.parse(next_input1);
+            r = p.parse(next_input1);
             if r.is_ok() { return r; }
             next_input1 = next_input2;
         }     

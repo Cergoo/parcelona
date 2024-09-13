@@ -1,6 +1,6 @@
 [package]
 name = "parcelona"
-version = "0.1.5"
+version = "0.1.6"
 authors = ["Cergoo"]
 edition = "2021"
 description = "minimalistic elegance parser combinator library"
@@ -12,12 +12,14 @@ readme = "README.md"
 
 [dependencies]
 byteorder = "1.5.0"
+macros_derive = { path = "./crates/macros_derive" }
 
 [dev-dependencies]
 atoi = "2.0.0"
 byteorder = "1.5.0"
 
+[features]
+alt_tuple_32 = []
+alt_tuple_64 = []
 
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

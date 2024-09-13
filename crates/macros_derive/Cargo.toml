@@ -1,0 +1,13 @@
+[package]
+name = "macros_derive"
+version = "0.1.0"
+authors = ["prof"]
+edition = "2021"
+
+[dependencies]
+syn = { version = "2.0", features = ["extra-traits", "full"] }
+quote = "1.0"
+proc-macro2 = { version = "1.0", features = ["span-locations"] }
+
+[lib]
+proc-macro = true

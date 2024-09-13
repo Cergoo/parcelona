@@ -183,3 +183,13 @@ fn t_sep_list() {
     let r: Vec<u8> = fflaten(r);
     assert_eq!(b"h".to_vec(), r);
 }
+
+#[test]
+fn t_t_f() { 
+    let data: &[u8] = b"true|false truefalse";
+    let p_true =  map(take(starts_with(b"true")), |_|true);
+    let p_false = map(take(starts_with(b"false")), |_|false);
+    let step = take(seq(is_any,SeqCount::Exact(1)));
+    let (_input, result) = find(step, (p_false,p_true).alt()).more(ZERO).parse(data).unwrap();
+    assert_eq!(vec![true,false,true,false], result);
+}
