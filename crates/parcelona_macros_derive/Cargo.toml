@@ -1,8 +1,11 @@
 [package]
-name = "macros_derive"
+name = "parcelona_macros_derive"
 version = "0.1.0"
-authors = ["prof"]
+authors = ["Cergoo"]
 edition = "2021"
+description = "parcelona internal macro crate"
+license = "MIT"
+repository = "https://github.com/Cergoo/parcelona"
 
 [dependencies]
 syn = { version = "2.0", features = ["extra-traits", "full"] }

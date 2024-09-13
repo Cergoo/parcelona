@@ -12,7 +12,7 @@ readme = "README.md"
 
 [dependencies]
 byteorder = "1.5.0"
-macros_derive = { path = "./crates/macros_derive" }
+parcelona_macros_derive = { path = "./crates/parcelona_macros_derive", version = "0.1" }
 
 [dev-dependencies]
 atoi = "2.0.0"

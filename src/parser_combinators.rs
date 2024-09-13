@@ -1,5 +1,6 @@
 //!  Parcelona minimalistic elegance parser combinator library.
 //!
+use parcelona_macros_derive::alt_impl;
 
 pub type ParseResult<'a,I,O> = std::result::Result<(&'a [I],O),&'a [I]>;
  
@@ -48,15 +49,16 @@ where
 }
 
 
-// 
+//
+
 #[cfg(feature = "alt_tuple_32")]
-macros_derive::alt_impl!(32);  
+alt_impl!(32);  
 
 #[cfg(all(feature = "alt_tuple_64", not(feature = "alt_tuple_32")))] 
-macros_derive::alt_impl!(64);  
+alt_impl!(64);  
 
 #[cfg(not(any(feature = "alt_tuple_32", feature = "alt_tuple_64")))]
-macros_derive::alt_impl!(16);  //max 255
+alt_impl!(16);  //max 255
 
 
 
