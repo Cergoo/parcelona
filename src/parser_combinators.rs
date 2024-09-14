@@ -95,9 +95,9 @@ pub fn starts_with<'a,T:'a+Eq+Clone>(pattern: &'a[T]) -> impl Fn(&'a[T]) -> usiz
 }
 
 /// function 'starts_with_any' for parametrize parser `take`
-pub fn starts_with_any<'a,T:'a+Eq+Clone>(pattern: &'a[&'a[T]]) -> impl Fn(&'a[T]) -> usize+'a+Copy {
+pub fn starts_with_any<'a,T:'a+Eq+Clone>(patterns: &'a[&'a[T]]) -> impl Fn(&'a[T]) -> usize+'a+Copy {
     move |input| {
-        for i in pattern {  if input.starts_with(i) { return pattern.len() }; };
+        for i in patterns {  if input.starts_with(i) { return i.len() }; };
         0
     }
 }
@@ -232,7 +232,7 @@ where
 
 /// combinator find, be careful when choosing a parser 'step', in most cases it
 /// should be a one step parser.
-pub fn find<'a,T:'a,P1,P2,R1,R2>(step:P1,p:P2) -> impl Parser<'a,T,R2>
+pub fn find<'a,T:'a,P1,P2,R1,R2>(step:P1, p:P2) -> impl Parser<'a,T,R2>
 where
     P1: Parser<'a,T,R1>,
     P2: Parser<'a,T,R2>,
@@ -333,8 +333,7 @@ where
     and_then(
         more(left(elem,sep),ZERO), 
         last_elem.option(), 
-        |(mut a,b)| {
-            match b {
+        |(mut a,b)| { match b {
                 Some(x) => {a.push(x); a},
                 None    => a,
         }})   
