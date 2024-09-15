@@ -30,4 +30,36 @@ assert_eq!(Color{red: 47, green: 20, blue: 223}, color);
 
 how to parse utf8 &str ? use crate [unicode-segmentation](https://github.com/unicode-rs/unicode-segmentation)
 
+## doc
 
+### parser_combinator
+This core of library and has only two parsers:
+- `take`
+- `data_end`
+and has many parser combinators:
+- `not (parser)`
+- `map (parser,Fn)`
+- `option (parser)`
+- `pair (parser,parser)`
+- `left (parser,parser)`
+- `right (parser,parser)`
+- `left_opt (parser,parser)`
+- `right_opt (parser,parser)`
+- `more (parser,bool)`
+- `alt ((tuple of rarsers))`
+- `find (parser,parser)`
+- `sep_pair (parser,parser,parser)`
+- `between (parser,parser,parser)`
+- `between_opt (parser,parser,parser)`
+- `and_then (parser,parser,Fn)`
+- `sep_list (parser,parser,parser)`
+
+### u8
+This functions for `u8`
+
+### u8ext
+This parsers for `&[u8]`
+
+### examples
+- See `tests`
+- [take_sni](https://github.com/Cergoo/take_sni) tls sni hand shake parsing

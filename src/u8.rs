@@ -45,3 +45,6 @@ pub fn is_any(_:&u8) -> bool { true }
 /// Turns uppercase into lowercase, but also modifies '@' and '<'..='_' if not check input
 #[inline]
 pub fn to_lowercase(a: u8) -> u8 { if is_alpha_upper(&a) { a | 0b010_0000 } else { a } }
+
+#[inline]
+pub fn to_upperrcase(a: u8) -> u8 {  a - 32 }

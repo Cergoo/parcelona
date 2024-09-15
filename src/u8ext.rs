@@ -87,6 +87,8 @@ pub fn take_record_be_u64(b: &[u8]) -> Result<(&[u8], &[u8]), &[u8]> {
 	take_record(new_b, l)
 }
 
+
+
 /// most common option separated list of &[u8]
 /// clear space enable function
 pub fn sep_list_common<'a,Pe,Re,Ps,Rs>(elem:Pe,sep:Ps) -> impl Parser<'a,u8,Vec<Re>>
