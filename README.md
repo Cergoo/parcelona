@@ -36,6 +36,7 @@ how to parse utf8 &str ? use crate [unicode-segmentation](https://github.com/uni
 This core of library and has only two parsers:
 - `take`
 - `data_end`
+
 and has many parser combinators:
 - `not (parser)`
 - `map (parser,Fn)`
