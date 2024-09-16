@@ -33,9 +33,12 @@ how to parse utf8 &str ? use crate [unicode-segmentation](https://github.com/uni
 ## doc
 
 ### parser_combinator
-This core of library and has only two parsers:
-- `take`
+This core of library and has parsers:
 - `data_end`
+- `any`
+- `start_with`
+- `start_with_any`
+- `seq`
 
 and has many parser combinators:
 - `not (parser)`
@@ -64,3 +67,4 @@ This parsers for `&[u8]`
 ### examples
 - See `tests`
 - [take_sni](https://github.com/Cergoo/take_sni) tls sni hand shake parsing
+

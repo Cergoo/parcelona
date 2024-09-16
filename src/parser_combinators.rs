@@ -64,41 +64,38 @@ alt_impl!(16);  //max 255
 
 
 
-
-/// parser 'take', this is firs parser, but it can be parameterized by functions.
-pub fn take<'a,T,P>(predicat: P) -> impl Parser<'a,T,&'a[T]>
-where
-     T: 'a,
-     P: Fn(&'a[T]) -> usize + Copy,
-{     
-    move |input: &'a[T]| {
-        let i = predicat(input);
-        if i>0 { return Ok(split_at_revers(input, i)); }
-        Err(input)
-    }    
-}
-
-/// parser `data end` this is second parser, it detect end of data.
-/// there are no other parsers, only `take` and `data_end` 
+/// parser `data end`
 pub fn data_end<T>(a:&[T]) -> Result<(&[T],&[T]), &[T]> {
     if !a.is_empty() {  Err(a) } else { Ok((a,a)) }
 }
 
-/// function 'any' for parametrize parser `take`
-pub fn any<'a,T:'a+Eq+Clone>(pattern: &'a[T]) -> impl Fn(&'a[T]) -> usize+'a+Copy {
-    |input| { if !input.is_empty() && pattern.contains(&input[0]) { 1 } else { 0 } }
+/// parser 'any'
+pub fn any<'a,T:'a+Eq+Clone>(pattern: &'a[T]) -> impl Parser<'a,T,&'a[T]> {
+    |input:&'a[T]| { 
+        if !input.is_empty() && pattern.contains(&input[0]) { 
+            return Ok(split_at_revers(input, 1));
+        } 
+        Err(input)
+    }
 }
 
-/// function 'starts_with' for parametrize parser `take`
-pub fn starts_with<'a,T:'a+Eq+Clone>(pattern: &'a[T]) -> impl Fn(&'a[T]) -> usize+'a+Copy {
-    |input| { if input.starts_with(pattern) { pattern.len() } else { 0 } }
+/// parser 'starts_with'
+pub fn starts_with<'a,T:'a+Eq+Clone>(pattern: &'a[T]) -> impl Parser<'a,T,&'a[T]> {
+    |input:&'a[T]| { 
+        if input.starts_with(pattern) {
+           return  Ok(split_at_revers(input, pattern.len()));
+        } 
+        Err(input) 
+    }
 }
 
-/// function 'starts_with_any' for parametrize parser `take`
-pub fn starts_with_any<'a,T:'a+Eq+Clone>(patterns: &'a[&'a[T]]) -> impl Fn(&'a[T]) -> usize+'a+Copy {
-    move |input| {
-        for i in patterns {  if input.starts_with(i) { return i.len() }; };
-        0
+///  parser 'starts_with_any'
+pub fn starts_with_any<'a,T:'a+Eq+Clone>(patterns: &'a[&'a[T]]) -> impl Parser<'a,T,&'a[T]> {
+    move |input:&'a[T]| {
+        for i in patterns { 
+            if input.starts_with(i) { return  Ok(split_at_revers(input, i.len())); }
+        }
+        Err(input)
     }
 }
 
@@ -106,24 +103,26 @@ pub fn starts_with_any<'a,T:'a+Eq+Clone>(patterns: &'a[&'a[T]]) -> impl Fn(&'a[T
 #[derive(Clone, Copy)]
  pub enum SeqCount {
     Max(usize),
+    Min(usize),
     Exact(usize),
     Range((usize,usize)),
     None,    
 }
 
-/// function 'seq'-sequence for parametrize parser `take`
-pub fn seq<'a,P,T:'a+Eq+Clone>(p: P, count:SeqCount) -> impl Fn(&'a[T]) -> usize+Copy+'a
+/// parser `seq`
+pub fn seq<'a,P,T:'a+Eq+Clone>(p: P, count:SeqCount) -> impl Parser<'a,T,&'a[T]>
 where
     P: Fn(& T) -> bool+Copy+'a,
-{ move |input| {
+{ move |input:&'a[T]| {
     let mut c:usize = 0;
     match count {
         SeqCount::None        =>   for i in input { if p(i)      {c+=1;} else {break;} },
         SeqCount::Max(x)      =>   for i in input { if c<x&&p(i) {c+=1;} else {break;} },
+        SeqCount::Min(x)      => { for i in input { if p(i)      {c+=1;} else {break;} } if c<x  {c=0;}; },
         SeqCount::Exact(x)    => { for i in input { if c<x&&p(i) {c+=1;} else {break;} } if c!=x {c=0;}; },
         SeqCount::Range((x,y))=> { for i in input { if c<y&&p(i) {c+=1;} else {break;} } if c<x  {c=0;}; },
     }
-    c
+    if c>0 { Ok(split_at_revers(input, c)) } else { Err(input) }
 }}
 
 /// `notp` closur for `seq` a func parametr. notp(predicat)

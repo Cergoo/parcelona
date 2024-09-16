@@ -16,21 +16,21 @@ let d = (" CONNECT linkedin.com 1/2/4".as_bytes(),
            (1,2,4),
         ));
               
- let p1 = right_opt(take(seq(is_space,SeqCount::None)), take(seq(is_alpha_upper,SeqCount::None)));
+ let p1 = right_opt(seq(is_space,SeqCount::None), seq(is_alpha_upper,SeqCount::None));
  let r1 = p1.parse(d.0);
  assert_eq!(r1, Ok((&d.0[8..], &d.0[1..8])));
 }
    
 #[test]
 fn t2() {    
-    let p=left_opt(take(seq(is_alpha_upper,SeqCount::Exact(3))), take(seq(is_space,SeqCount::None)));
+    let p=left_opt(seq(is_alpha_upper,SeqCount::Exact(3)), seq(is_space,SeqCount::None));
     let r=p.parse(b"GET HTTttp");
     assert_eq!(Ok(("HTTttp".as_bytes(),"GET".as_bytes())), r);
 }
 
 #[test]
 fn t3() {    
-    let p=take(seq(is_alpha_upper,SeqCount::None)).option();
+    let p=seq(is_alpha_upper,SeqCount::None).option();
     let r=p.parse(b"GET HTTttp");
     assert_eq!(Ok((" HTTttp".as_bytes(),Some("GET".as_bytes()))), r);
 }
@@ -38,7 +38,7 @@ fn t3() {
 #[test]
 fn t_find() {
     let data="mnb mnbmb bmnm jkmn CONNECT: 1 mnbnm mnmn/r/n nbn".as_bytes();     
-    let parser=find(take(seq(is_no_eol,SeqCount::Exact(1))),take(starts_with(b"CONNECT")));
+    let parser=find(seq(is_no_eol,SeqCount::Exact(1)), starts_with(b"CONNECT"));
     let result=parser.parse(data);
     assert_eq!(Ok((": 1 mnbnm mnmn/r/n nbn".as_bytes(),"CONNECT".as_bytes())), result);
 }
@@ -47,13 +47,13 @@ fn t_find() {
 fn t_find_sep_pair() {
 let data="mnb mnbmb bmnm jkmn CONNECT: 1 mnbnm mnmn/r/n nbn".as_bytes();
 
-let space = take(seq(is_space,SeqCount::None));  
+let space = seq(is_space,SeqCount::None);  
 let parser=find(
-    take(seq(is_no_eol,SeqCount::Exact(1))),
+    seq(is_no_eol,SeqCount::Exact(1)),
     sep_pair(
-        take(starts_with(b"CONNECT")),
-        right_opt(space.clone(),take(any(b":"))),
-        right_opt(space.clone(),take(seq(is_dec_digit,SeqCount::None)))
+        starts_with(b"CONNECT"),
+        right_opt(space, any(b":")),
+        right_opt(space, seq(is_dec_digit,SeqCount::None))
     ));
  
 let result=parser.parse(data);
@@ -64,8 +64,8 @@ assert_eq!(Ok((" mnbnm mnmn/r/n nbn".as_bytes(),("CONNECT".as_bytes(),"1".as_byt
 fn t_more() {
 let data="b:12 b:2 jkmn CONNECT: 1 mnbnm mnmn/r/n nbn".as_bytes();
 
-let space = take(seq(is_any,SeqCount::Exact(1)));  
-let search_it = find( space.clone(), take(seq(is_dec_digit,SeqCount::None)) );
+let space = seq(is_any,SeqCount::Exact(1));  
+let search_it = find(space, seq(is_dec_digit,SeqCount::None));
 let p = search_it.more(NO_ZERO).parse(data);
 
 assert_eq!(Ok((" mnbnm mnmn/r/n nbn".as_bytes(),Vec::from(["12".as_bytes(), "2".as_bytes(), "1".as_bytes()]))), p);
@@ -75,8 +75,8 @@ assert_eq!(Ok((" mnbnm mnmn/r/n nbn".as_bytes(),Vec::from(["12".as_bytes(), "2".
 fn t_find1() {
 let data="b:12 b:2 jkmn CONNECT: 1 mnbnm mnmn/r/n nbn".as_bytes();
 
-let space = take(seq(is_any,SeqCount::Exact(1)));  
-let search_it = find( space.clone(), take(seq(is_dec_digit,SeqCount::None)) );
+let space = seq(is_any,SeqCount::Exact(1));  
+let search_it = find(space, seq(is_dec_digit,SeqCount::None));
 let p = search_it.more(NO_ZERO).parse(data);
 
 assert_eq!(Ok((" mnbnm mnmn/r/n nbn".as_bytes(),Vec::from(["12".as_bytes(), "2".as_bytes(), "1".as_bytes()]))), p);
@@ -86,8 +86,8 @@ assert_eq!(Ok((" mnbnm mnmn/r/n nbn".as_bytes(),Vec::from(["12".as_bytes(), "2".
 fn t_alt() {
     let data="b:12 b:2 jkmn CONNECT: 1 mnbnm mnmn/r/n nbn".as_bytes();
 
-    let s1 = take(seq(is_any,SeqCount::Exact(1)));  
-    let s2 = take(seq(is_any,SeqCount::Exact(2))); 
+    let s1 = seq(is_any,SeqCount::Exact(1));  
+    let s2 = seq(is_any,SeqCount::Exact(2)); 
     let (_i,r) = (s2,s1).choice(data).unwrap();
     assert_eq!(r, b"b:");
     ()
@@ -104,8 +104,8 @@ pub struct Color {
 
 let input = "#2F14DF".as_bytes();
 
-let hex_color = take(seq(is_hex_digit,SeqCount::Exact(2)));
-let (input,_) = take(starts_with(b"#")).parse(input).unwrap();
+let hex_color = seq(is_hex_digit,SeqCount::Exact(2));
+let (input,_) = starts_with(b"#").parse(input).unwrap();
 let (_input,c) = hex_color.more(NO_ZERO).parse(input).unwrap();
 let (r,_) = u8::from_radix_16(c[0]);
 let (g,_) = u8::from_radix_16(c[1]);
@@ -118,7 +118,7 @@ assert_eq!(Color{red: 47, green: 20, blue: 223}, color);
 #[test]
 fn t_exact() {
 let data="bb".as_bytes();
-let p = take(seq(is_any,SeqCount::Exact(3))).parse(data).ok();  
+let p = seq(is_any,SeqCount::Exact(3)).parse(data).ok();  
 assert_eq!(None, p);
 }
 
@@ -126,7 +126,7 @@ assert_eq!(None, p);
 fn t_exact1() {
     use byteorder::{ByteOrder, BE}; 
     let data = [4, 7];
-    let p = map(take(seq(is_any,SeqCount::Exact(3))),|x|{BE::read_u24(x) as usize});
+    let p = map(seq(is_any,SeqCount::Exact(3)),|x|{BE::read_u24(x) as usize});
     assert_eq!(None, p.parse(&data).ok());
 }
 
@@ -139,9 +139,9 @@ fn t_u8ext() {
 
 #[test]
 fn t_sep_list() { 
-    let space   = take(seq(is_space,SeqCount::None)); 
-    let element = take(seq(is_alpha,SeqCount::Exact(1)));  
-    let separ   = take(starts_with(b","));  
+    let space   = seq(is_space,SeqCount::None); 
+    let element = seq(is_alpha,SeqCount::Exact(1));  
+    let separ   = starts_with(b",");  
     let list = sep_list( 
             between_opt(space,element,space),
             separ,
@@ -187,9 +187,9 @@ fn t_sep_list() {
 #[test]
 fn t_t_f() { 
     let data: &[u8] = b"true|false truefalse";
-    let p_true =  map(take(starts_with(b"true")), |_|true);
-    let p_false = map(take(starts_with(b"false")), |_|false);
-    let step = take(seq(is_any,SeqCount::Exact(1)));
+    let p_true =  map(starts_with(b"true"), |_|true);
+    let p_false = map(starts_with(b"false"), |_|false);
+    let step = seq(is_any,SeqCount::Exact(1));
     let (_input, result) = find(step, (p_false,p_true).alt()).more(ZERO).parse(data).unwrap();
     assert_eq!(vec![true,false,true,false], result);
 }
