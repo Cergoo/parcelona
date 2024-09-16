@@ -71,7 +71,7 @@ pub fn data_end<T>(a:&[T]) -> Result<(&[T],&[T]), &[T]> {
 
 /// parser 'any'
 pub fn any<'a,T:'a+Eq+Clone>(pattern: &'a[T]) -> impl Parser<'a,T,&'a[T]> {
-    |input:&'a[T]| { 
+    move |input:&'a[T]| { 
         if !input.is_empty() && pattern.contains(&input[0]) { 
             return Ok(split_at_revers(input, 1));
         } 
@@ -81,7 +81,7 @@ pub fn any<'a,T:'a+Eq+Clone>(pattern: &'a[T]) -> impl Parser<'a,T,&'a[T]> {
 
 /// parser 'starts_with'
 pub fn starts_with<'a,T:'a+Eq+Clone>(pattern: &'a[T]) -> impl Parser<'a,T,&'a[T]> {
-    |input:&'a[T]| { 
+    move |input:&'a[T]| { 
         if input.starts_with(pattern) {
            return  Ok(split_at_revers(input, pattern.len()));
         } 
@@ -113,17 +113,25 @@ pub fn starts_with_any<'a,T:'a+Eq+Clone>(patterns: &'a[&'a[T]]) -> impl Parser<'
 pub fn seq<'a,P,T:'a+Eq+Clone>(p: P, count:SeqCount) -> impl Parser<'a,T,&'a[T]>
 where
     P: Fn(& T) -> bool+Copy+'a,
-{ move |input:&'a[T]| {
-    let mut c:usize = 0;
-    match count {
-        SeqCount::None        =>   for i in input { if p(i)      {c+=1;} else {break;} },
-        SeqCount::Max(x)      =>   for i in input { if c<x&&p(i) {c+=1;} else {break;} },
-        SeqCount::Min(x)      => { for i in input { if p(i)      {c+=1;} else {break;} } if c<x  {c=0;}; },
-        SeqCount::Exact(x)    => { for i in input { if c<x&&p(i) {c+=1;} else {break;} } if c!=x {c=0;}; },
-        SeqCount::Range((x,y))=> { for i in input { if c<y&&p(i) {c+=1;} else {break;} } if c<x  {c=0;}; },
-    }
-    if c>0 { Ok(split_at_revers(input, c)) } else { Err(input) }
+{
+    move |input:&'a[T]| {
+        let mut c:usize = 0;
+        match count {
+            SeqCount::None        =>   for i in input { if p(i)      {c+=1;} else {break;} },
+            SeqCount::Max(x)      =>   for i in input { if c<x&&p(i) {c+=1;} else {break;} },
+            SeqCount::Min(x)      => { for i in input { if p(i)      {c+=1;} else {break;} } if c<x  {c=0;}; },
+            SeqCount::Exact(x)    => { for i in input { if c<x&&p(i) {c+=1;} else {break;} } if c!=x {c=0;}; },
+            SeqCount::Range((x,y))=> { for i in input { if c<y&&p(i) {c+=1;} else {break;} } if c<x  {c=0;}; },
+        }
+        if c>0 { Ok(split_at_revers(input, c)) } else { Err(input) }
 }}
+
+/// parser `take`
+pub fn take<'a,T:'a>(count:usize) -> impl Parser<'a,T,&'a[T]> {
+    move |input:&'a[T]| { take_record(input, count) }
+}
+
+
 
 /// `notp` closur for `seq` a func parametr. notp(predicat)
 pub fn notp<T>(f: impl Fn(& T) -> bool) -> impl Fn(& T) -> bool
@@ -342,6 +350,12 @@ where
 #[inline]
 pub fn split_at_revers<T>(input: &[T], count: usize) -> (&[T], &[T]) {
     (&input[count..], &input[..count])
+}
+
+/// read record Big Endian
+pub fn take_record<T>(b: &[T], l: usize) -> Result<(&[T], &[T]), &[T]> {
+	if b.len() < l { return Err(b); }
+	Ok(split_at_revers(b, l))
 }
 
 /// just useful function

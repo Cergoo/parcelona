@@ -4,6 +4,7 @@ use crate::parser_combinators::{*};
 use crate::u8::is_space;
 use byteorder::{ByteOrder, BE};
 use std::result::Result;
+pub use crate::parser_combinators::take_record;
 
 
 // read only len Big Endian
@@ -46,13 +47,6 @@ pub fn take_len_be_u64(b: &[u8]) -> Result<(&[u8], usize), &[u8]> {
 	let (new_b, c) = split_at_revers(b, 8);
 	Ok((new_b, BE::read_u64(c) as usize))
 }
-
-/// read record Big Endian
-pub fn take_record(b: &[u8], l: usize) -> Result<(&[u8], &[u8]), &[u8]> {
-	if b.len() < l { return Err(b); }
-	Ok(split_at_revers(b, l))
-}
-
 
 /// read record Big Endian
 pub fn take_record_be_u8(b: &[u8]) -> Result<(&[u8], &[u8]), &[u8]> {

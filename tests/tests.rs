@@ -193,3 +193,16 @@ fn t_t_f() {
     let (_input, result) = find(step, (p_false,p_true).alt()).more(ZERO).parse(data).unwrap();
     assert_eq!(vec![true,false,true,false], result);
 }
+
+#[test]
+fn t_simple() { 
+    let data: &[u8] = b"true";
+    let c:usize = 2;
+    let t1 = take(c);
+    let t2 = take(c);
+    let (data, r1) = t1.parse(data).unwrap();
+    let (_data, r2) = t2.parse(data).unwrap();
+
+    assert_eq!(b"tr", r1);
+    assert_eq!(b"ue", r2);
+}

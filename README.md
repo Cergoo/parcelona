@@ -39,6 +39,7 @@ This core of library and has parsers:
 - `starts_with`
 - `starts_with_any`
 - `seq`
+- `take`
 
 and has many parser combinators:
 - `not (parser)`
