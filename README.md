@@ -16,8 +16,8 @@ pub struct Color {
 
 let input = "#2F14DF".as_bytes();
 
-let hex_color = take(seq(is_hex_digit,SeqCount::Exact(2)));
-let (input,_) = take(starts_with(b"#")).parse(input).unwrap();
+let hex_color = seq(is_hex_digit,SeqCount::Exact(2));
+let (input,_) = starts_with(b"#").parse(input).unwrap();
 let (input,c) = hex_color.more(NO_ZERO).parse(input).unwrap();
 let (r,_) = u8::from_radix_16(c[0]);
 let (g,_) = u8::from_radix_16(c[1]);
@@ -36,8 +36,8 @@ how to parse utf8 &str ? use crate [unicode-segmentation](https://github.com/uni
 This core of library and has parsers:
 - `data_end`
 - `any`
-- `start_with`
-- `start_with_any`
+- `starts_with`
+- `starts_with_any`
 - `seq`
 
 and has many parser combinators:

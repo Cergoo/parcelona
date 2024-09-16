@@ -98,8 +98,8 @@ where
 {   
 	let space = seq(is_space,SeqCount::None);
 	sep_list( 
-        between_opt(space,elem,space),
-		sep,
-		left(right_opt(space,elem), alt((space,data_end))),
+    between_opt(space,elem,space),
+    sep,
+    left(right_opt(space,elem), alt((space,data_end))),
 	)
 }
