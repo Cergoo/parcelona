@@ -352,7 +352,7 @@ pub fn split_at_revers<T>(input: &[T], count: usize) -> (&[T], &[T]) {
     (&input[count..], &input[..count])
 }
 
-/// read record Big Endian
+/// just read record
 pub fn take_record<T>(b: &[T], l: usize) -> Result<(&[T], &[T]), &[T]> {
 	if b.len() < l { return Err(b); }
 	Ok(split_at_revers(b, l))
