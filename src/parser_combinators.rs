@@ -238,10 +238,8 @@ where
     }
 }
 
-
-/// combinator `find extended`, 
-/// be careful when choosing a parser 'step', in most cases it should be a one step parser.
-pub fn find_ext<'a,T:'a,P1,P2,R1,R2>(p:P1, step:P2) -> impl Parser<'a,T,R1>
+/// combinator `find stop`
+pub fn find_stop<'a,T:'a,P1,P2,R1,R2>(p:P1, stop:P2) -> impl Parser<'a,T,R1>
 where
     P1: Parser<'a,T,R1>,
     P2: Parser<'a,T,R2>,
@@ -251,7 +249,9 @@ where
         loop {    
             let r = p.parse(new_input);
             if r.is_ok() { return r; }
-            (new_input,_) = step.parse(new_input).map_err(|_|input)?;
+            let s = stop.parse(new_input);
+            if s.is_ok() { return Err(input); }
+            (new_input,_) = take_record(new_input,1).map_err(|_|input)?;
         }
 }}
 

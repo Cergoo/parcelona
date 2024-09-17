@@ -52,7 +52,7 @@ and has many parser combinators:
 - `right_opt (parser,parser)`
 - `more (parser,bool)`
 - `alt ((tuple of rarsers))`
-- `find_ext (parser,parser)`
+- `find_stop (parser,parser)`
 - `find (parser)`
 - `sep_pair (parser,parser,parser)`
 - `between (parser,parser,parser)`
