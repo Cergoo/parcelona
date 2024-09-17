@@ -38,7 +38,7 @@ fn t3() {
 #[test]
 fn t_find() {
     let data="mnb mnbmb bmnm jkmn CONNECT: 1 mnbnm mnmn/r/n nbn".as_bytes();     
-    let parser=find(seq(is_no_eol,SeqCount::Exact(1)), starts_with(b"CONNECT"));
+    let parser=find(starts_with(b"CONNECT"));
     let result=parser.parse(data);
     assert_eq!(Ok((": 1 mnbnm mnmn/r/n nbn".as_bytes(),"CONNECT".as_bytes())), result);
 }
@@ -49,7 +49,6 @@ let data="mnb mnbmb bmnm jkmn CONNECT: 1 mnbnm mnmn/r/n nbn".as_bytes();
 
 let space = seq(is_space,SeqCount::None);  
 let parser=find(
-    seq(is_no_eol,SeqCount::Exact(1)),
     sep_pair(
         starts_with(b"CONNECT"),
         right_opt(space, any(b":")),
@@ -62,10 +61,8 @@ assert_eq!(Ok((" mnbnm mnmn/r/n nbn".as_bytes(),("CONNECT".as_bytes(),"1".as_byt
 
 #[test]
 fn t_more() {
-let data="b:12 b:2 jkmn CONNECT: 1 mnbnm mnmn/r/n nbn".as_bytes();
-
-let space = seq(is_any,SeqCount::Exact(1));  
-let search_it = find(space, seq(is_dec_digit,SeqCount::None));
+let data="b:12 b:2 jkmn CONNECT: 1 mnbnm mnmn/r/n nbn".as_bytes();  
+let search_it = find(seq(is_dec_digit,SeqCount::None));
 let p = search_it.more(NO_ZERO).parse(data);
 
 assert_eq!(Ok((" mnbnm mnmn/r/n nbn".as_bytes(),Vec::from(["12".as_bytes(), "2".as_bytes(), "1".as_bytes()]))), p);
@@ -73,10 +70,8 @@ assert_eq!(Ok((" mnbnm mnmn/r/n nbn".as_bytes(),Vec::from(["12".as_bytes(), "2".
 
 #[test]
 fn t_find1() {
-let data="b:12 b:2 jkmn CONNECT: 1 mnbnm mnmn/r/n nbn".as_bytes();
-
-let space = seq(is_any,SeqCount::Exact(1));  
-let search_it = find(space, seq(is_dec_digit,SeqCount::None));
+let data="b:12 b:2 jkmn CONNECT: 1 mnbnm mnmn/r/n nbn".as_bytes();  
+let search_it = find(seq(is_dec_digit,SeqCount::None));
 let p = search_it.more(NO_ZERO).parse(data);
 
 assert_eq!(Ok((" mnbnm mnmn/r/n nbn".as_bytes(),Vec::from(["12".as_bytes(), "2".as_bytes(), "1".as_bytes()]))), p);
@@ -189,8 +184,7 @@ fn t_t_f() {
     let data: &[u8] = b"true|false truefalse";
     let p_true =  map(starts_with(b"true"), |_|true);
     let p_false = map(starts_with(b"false"), |_|false);
-    let step = seq(is_any,SeqCount::Exact(1));
-    let (_input, result) = find(step, (p_false,p_true).alt()).more(ZERO).parse(data).unwrap();
+    let (_input, result) = find((p_false,p_true).alt()).more(ZERO).parse(data).unwrap();
     assert_eq!(vec![true,false,true,false], result);
 }
 

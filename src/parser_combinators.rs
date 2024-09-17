@@ -126,12 +126,13 @@ where
         if c>0 { Ok(split_at_revers(input, c)) } else { Err(input) }
 }}
 
+#[inline]
+pub fn is_any<T>(_:&T) -> bool { true }
+
 /// parser `take`
 pub fn take<'a,T:'a>(count:usize) -> impl Parser<'a,T,&'a[T]> {
     move |input:&'a[T]| { take_record(input, count) }
 }
-
-
 
 /// `notp` closur for `seq` a func parametr. notp(predicat)
 pub fn notp<T>(f: impl Fn(& T) -> bool) -> impl Fn(& T) -> bool
@@ -237,24 +238,36 @@ where
     }
 }
 
-/// combinator find, be careful when choosing a parser 'step', in most cases it
-/// should be a one step parser.
-pub fn find<'a,T:'a,P1,P2,R1,R2>(step:P1, p:P2) -> impl Parser<'a,T,R2>
+
+/// combinator `find extended`, 
+/// be careful when choosing a parser 'step', in most cases it should be a one step parser.
+pub fn find_ext<'a,T:'a,P1,P2,R1,R2>(p:P1, step:P2) -> impl Parser<'a,T,R1>
 where
     P1: Parser<'a,T,R1>,
     P2: Parser<'a,T,R2>,
 {
     move |input: &'a[T]| {
-        let mut next_input1 = input;
-        let mut r: ParseResult<'a,T,R2>; 
-        while let Ok((next_input2,_)) = step.parse(next_input1) {
-            r = p.parse(next_input1);
+        let mut new_input = input;
+        loop {    
+            let r = p.parse(new_input);
             if r.is_ok() { return r; }
-            next_input1 = next_input2;
-        }     
-        Err(input)
-    }
-}
+            (new_input,_) = step.parse(new_input).map_err(|_|input)?;
+        }
+}}
+
+/// find combinator
+pub fn find<'a,T:'a,P,R>(p:P) -> impl Parser<'a,T,R>
+where
+    P: Parser<'a,T,R>
+{
+    move |input: &'a[T]| {
+        let mut new_input = input;
+        loop {    
+            let r = p.parse(new_input);
+            if r.is_ok() { return r; }
+            (new_input,_) = take_record(new_input,1).map_err(|_|input)?;
+        }
+}}
 
 /// const for write more readable parsers
 pub const NO_ZERO:bool = true;
