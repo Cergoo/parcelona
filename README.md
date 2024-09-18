@@ -16,9 +16,9 @@ pub struct Color {
 
 let input = "#2F14DF".as_bytes();
 
-let hex_color = seq(is_hex_digit,SeqCount::Exact(2));
+let hex_color = seq_exact(is_hex_digit,2);
 let (input,_) = starts_with(b"#").parse(input).unwrap();
-let (input,c) = hex_color.more(NO_ZERO).parse(input).unwrap();
+let (input,c) = hex_color.more_exact(3).parse(input).unwrap();
 let (r,_) = u8::from_radix_16(c[0]);
 let (g,_) = u8::from_radix_16(c[1]);
 let (b,_) = u8::from_radix_16(c[2]);
@@ -38,19 +38,30 @@ This core of library and has parsers:
 - `any`
 - `starts_with`
 - `starts_with_any`
-- `seq`
 - `take`
+- `seq`
+- `seq_exact`
+- `seq_max`
+- `seq_min`
+- `seq_range`
+
 
 and has many parser combinators:
 - `not (parser)`
 - `map (parser,Fn)`
+- `fmap (parser,Fn)`
 - `option (parser)`
 - `pair (parser,parser)`
 - `left (parser,parser)`
 - `right (parser,parser)`
 - `left_opt (parser,parser)`
 - `right_opt (parser,parser)`
-- `more (parser,bool)`
+- `more (parser)`
+- `more_zero (parser)`
+- `more_max (parser,usize)`
+- `more_min (parser,usize)`
+- `more_exact (parser,usize)`
+- `more_range (parser,(usize,usize))`
 - `alt ((tuple of rarsers))`
 - `find_stop (parser,parser)`
 - `find (parser)`

@@ -7,9 +7,14 @@ pub type ParseResult<'a,I,O> = std::result::Result<(&'a [I],O),&'a [I]>;
 /// Main parser definition
 pub trait Parser<'a,I:'a,O>: Copy {
     fn parse(&self, input:&'a [I]) -> ParseResult<'a,I,O>;
-    fn option(self) -> impl Parser<'a,I,Option<O>> { option(self) }
-    fn more(self,no_zero:bool) -> impl Parser<'a,I,Vec<O>> { more(self,no_zero) }
-    fn not(self) -> impl Parser<'a,I,()> { not(self) }
+    fn option(self) -> impl Parser<'a,I,Option<O>>                    { option(self) }
+    fn more_max(self,c:usize) -> impl Parser<'a,I,Vec<O>>             { more_max(self,c) }
+    fn more_min(self,c:usize) -> impl Parser<'a,I,Vec<O>>             { more_min(self,c) }
+    fn more_exact(self,c:usize) -> impl Parser<'a,I,Vec<O>>           { more_exact(self,c) }
+    fn more_range(self,c:(usize,usize)) -> impl Parser<'a,I,Vec<O>>   { more_range(self,c) }
+    fn more(self) -> impl Parser<'a,I,Vec<O>>                         { more(self) }
+    fn more_zero(self) -> impl Parser<'a,I,Vec<O>>                    { more_zero(self) }
+    fn not(self) -> impl Parser<'a,I,()>                              { not(self) }
 }
 
 impl<'a,I:'a,F,O> Parser<'a,I,O> for F
@@ -99,32 +104,65 @@ pub fn starts_with_any<'a,T:'a+Eq+Clone>(patterns: &'a[&'a[T]]) -> impl Parser<'
     }
 }
 
-/// enum for 'seq' function
-#[derive(Clone, Copy)]
- pub enum SeqCount {
-    Max(usize),
-    Min(usize),
-    Exact(usize),
-    Range((usize,usize)),
-    None,    
-}
-
-/// parser `seq`
-pub fn seq<'a,P,T:'a+Eq+Clone>(p: P, count:SeqCount) -> impl Parser<'a,T,&'a[T]>
+/// parser `sequence maximum`
+pub fn seq_max<'a,P,T:'a+Eq+Clone>(p: P, count_max:usize) -> impl Parser<'a,T,&'a[T]>
 where
     P: Fn(& T) -> bool+Copy+'a,
 {
-    move |input:&'a[T]| {
-        let mut c:usize = 0;
-        match count {
-            SeqCount::None        =>   for i in input { if p(i)      {c+=1;} else {break;} },
-            SeqCount::Max(x)      =>   for i in input { if c<x&&p(i) {c+=1;} else {break;} },
-            SeqCount::Min(x)      => { for i in input { if p(i)      {c+=1;} else {break;} } if c<x  {c=0;}; },
-            SeqCount::Exact(x)    => { for i in input { if c<x&&p(i) {c+=1;} else {break;} } if c!=x {c=0;}; },
-            SeqCount::Range((x,y))=> { for i in input { if c<y&&p(i) {c+=1;} else {break;} } if c<x  {c=0;}; },
-        }
-        if c>0 { Ok(split_at_revers(input, c)) } else { Err(input) }
-}}
+     move |input:&'a[T]| {  
+         let mut c:usize = 0;    
+         for i in input { if c<count_max&&p(i) {c+=1;} else {break;} }
+         if c>0 { Ok(split_at_revers(input, c)) } else { Err(input) }
+     }
+}
+
+/// parser `sequence minimum`
+pub fn seq_min<'a,P,T:'a+Eq+Clone>(p: P, count_min:usize) -> impl Parser<'a,T,&'a[T]>
+where
+    P: Fn(& T) -> bool+Copy+'a,
+{
+     move |input:&'a[T]| {  
+         let mut c:usize = 0;    
+         for i in input { if p(i) {c+=1;} else {break;} }
+         if c<count_min { Err(input) } else { Ok(split_at_revers(input, c)) } 
+     }
+}
+
+/// parser `sequence range`
+pub fn seq_range<'a,P,T:'a+Eq+Clone>(p: P, range:(usize,usize)) -> impl Parser<'a,T,&'a[T]>
+where
+    P: Fn(& T) -> bool+Copy+'a,
+{
+     move |input:&'a[T]| {  
+         let mut c:usize = 0;    
+         for i in input { if c<range.1&&p(i) {c+=1;} else {break;} }
+         if c<range.0 { Err(input) } else { Ok(split_at_revers(input, c)) } 
+     }
+}
+
+/// parser `sequence exact`
+pub fn seq_exact<'a,P,T:'a+Eq+Clone>(p: P, count_exact:usize) -> impl Parser<'a,T,&'a[T]>
+where
+    P: Fn(& T) -> bool+Copy+'a,
+{
+     move |input:&'a[T]| {  
+         let mut c:usize = 0;    
+         for i in input { if c<count_exact&&p(i) {c+=1;} else {break;} }
+         if c<count_exact { Err(input) } else { Ok(split_at_revers(input, c)) } 
+     }
+}
+
+/// parser `sequence`
+pub fn seq<'a,P,T:'a+Eq+Clone>(p: P) -> impl Parser<'a,T,&'a[T]>
+where
+    P: Fn(& T) -> bool+Copy+'a,
+{
+     move |input:&'a[T]| {  
+         let mut c:usize = 0;    
+         for i in input { if p(i) {c+=1;} else {break;} }
+         if c<1 { Err(input) } else { Ok(split_at_revers(input, c)) } 
+     }
+}
 
 #[inline]
 pub fn is_any<T>(_:&T) -> bool { true }
@@ -155,8 +193,8 @@ where
     }}
 }
 
-/// combinator map
-pub fn map<'a,T:'a,F,P,R1,R2>(parser: P, map_fn: F) -> impl Parser<'a,T,R2>
+/// combinator fmap
+pub fn fmap<'a,T:'a,F,P,R1,R2>(parser: P, map_fn: F) -> impl Parser<'a,T,R2>
 where
     P: Parser<'a,T,R1>,
     F: Fn(R1) -> R2 + Copy,
@@ -167,6 +205,16 @@ where
             .map(|(next_input, result)| (next_input, map_fn(result)))
     }
 }
+
+/// combinator map
+pub fn map<'a,T:'a,F,P,R1,R2>(parser: P, map_fn: F) -> impl Parser<'a,T,R2>
+where
+    P: Parser<'a,T,R1>,
+    F: Fn((&'a[T],R1)) -> ParseResult<'a,T,R2> + Copy,
+{
+    move |input| { map_fn(parser.parse(input)?) }
+}
+
 
 /// combinator option - allways return Ok, no Err
 pub fn option<'a,T:'a,P,R>(parser: P) -> impl Parser<'a,T,Option<R>>
@@ -198,7 +246,7 @@ where
     P1: Parser<'a,T,R1>,
     P2: Parser<'a,T,R2>,
 {
-    map(pair(p1,p2),|(l,_)|l)
+    fmap(pair(p1,p2),|(l,_)|l)
 }
 
 /// combinator right
@@ -207,7 +255,7 @@ where
     P1: Parser<'a,T,R1>,
     P2: Parser<'a,T,R2>,
 {
-    map(pair(p1,p2),|(_,r)|r)
+    fmap(pair(p1,p2),|(_,r)|r)
 }
 
 /// combinator right 'left'-is options, if left returns Error it is ignored
@@ -228,14 +276,10 @@ where
     P1: Parser<'a,T,R1>,
     P2: Parser<'a,T,R2>,
 {
-    move |input| {
-        p1.parse(input).map(|(next_input, r1)| {
-            match p2.parse(next_input) {
-                Ok((next_input,_)) => (next_input,r1),
-                _                  => (next_input,r1),
-            }    
-        })
-    }
+    map(p1, move|(i, r1)| { match p2.parse(i) {
+            Ok((i,_)) => Ok((i,r1)),
+            _         => Ok((i,r1)),
+    }})
 }
 
 /// combinator `find stop`
@@ -269,23 +313,108 @@ where
         }
 }}
 
-/// const for write more readable parsers
-pub const NO_ZERO:bool = true;
-pub const ZERO:bool    = false;
-
-/// combinator more
-pub fn more<'a,T:'a,P,R>(p:P,no_zero:bool) -> impl Parser<'a,T,Vec<R>>
+/// combinator `more maximum`
+pub fn more_max<'a,T:'a,P,R>(p:P, count_max:usize) -> impl Parser<'a,T,Vec<R>>
 where
     P: Parser<'a,T,R>,
-{
-    move |mut input: &'a[T]| {
+{   
+    move |input: &'a[T]| {
         let mut result = Vec::new();
-        while let Ok((next_input,item)) = p.parse(input) {
-            input = next_input;
-            result.push(item);
+        let mut next_input1 = input;
+        loop {
+            let Ok((next_input2,r)) = p.parse(next_input1) else { break; };
+            result.push(r);
+            if result.len()==count_max { break; } 
+            next_input1 = next_input2;
         }
-        if no_zero && result.is_empty() { Err(input) }
-        else { Ok((input,result)) }
+        if result.is_empty() { Err(input) } else { Ok((next_input1, result)) }
+    }
+}
+
+/// combinator `more minimum`
+pub fn more_min<'a,T:'a,P,R>(p:P, count_min:usize) -> impl Parser<'a,T,Vec<R>>
+where
+    P: Parser<'a,T,R>,
+{   
+    move |input: &'a[T]| {
+        let mut result = Vec::new();
+        let mut next_input1 = input;
+        loop {
+            let Ok((next_input2,r)) = p.parse(next_input1) else { break; };
+            result.push(r);
+            next_input1 = next_input2;
+        }
+        if result.len()<count_min { Err(input) } else { Ok((next_input1, result)) }
+    }
+}
+
+/// combinator `more range`
+pub fn more_range<'a,T:'a,P,R>(p:P, range:(usize,usize)) -> impl Parser<'a,T,Vec<R>>
+where
+    P: Parser<'a,T,R>,
+{   
+    move |input: &'a[T]| {
+        let mut result = Vec::new();
+        let mut next_input1 = input;
+        loop {
+            let Ok((next_input2,r)) = p.parse(next_input1) else { break; };
+            result.push(r);            
+            if result.len()==range.1 { break; }
+            next_input1 = next_input2;
+        }
+        if result.len()<range.0 { Err(input) } else { Ok((next_input1, result)) }
+    }
+}
+
+/// combinator `more exact`
+pub fn more_exact<'a,T:'a,P,R>(p:P, count_exact:usize) -> impl Parser<'a,T,Vec<R>>
+where
+    P: Parser<'a,T,R>,
+{   
+    move |input: &'a[T]| {
+        let mut result = Vec::new();
+        let mut next_input1 = input;
+        loop {
+            let Ok((next_input2,r)) = p.parse(next_input1) else { break; };
+            result.push(r);
+            if result.len()==count_exact { break; }
+            next_input1 = next_input2;
+        }
+        if result.len()<count_exact { Err(input) } else { Ok((next_input1, result)) }
+    }
+}
+
+/// combinator `more no zero`
+pub fn more<'a,T:'a,P,R>(p:P) -> impl Parser<'a,T,Vec<R>>
+where
+    P: Parser<'a,T,R>,
+{   
+    move |input: &'a[T]| {
+        let mut result = Vec::new();
+        let mut next_input1 = input;
+        loop {
+            let Ok((next_input2,r)) = p.parse(next_input1) else { break; };
+            result.push(r);
+            next_input1 = next_input2;
+        }
+        if result.is_empty() { Err(input) } else { Ok((next_input1, result)) }
+    }
+}
+
+/// combinator `more zero`. Attention! - rezult is always Ok.
+pub fn more_zero<'a,T:'a,P,R>(p:P) -> impl Parser<'a,T,Vec<R>>
+where
+    P: Parser<'a,T,R>,
+{   
+    move |input: &'a[T]| {
+        let mut result = Vec::new();
+        let mut next_input1 = input;
+        loop {
+            let Ok((next_input2,r)) = p.parse(next_input1) else { break; };
+            result.push(r);
+            next_input1 = next_input2;
+        }
+        Ok((next_input1, result))
     }
 }
 
@@ -331,7 +460,7 @@ where
     P2: Parser<'a,T,R2>,
     F: Fn((R1,R2)) -> R3 + Copy,
 {
-    map(pair(p1,p2),f)
+    fmap(pair(p1,p2),f)
 }
 
 
@@ -350,13 +479,13 @@ where
     Ps:  Parser<'a,T,Rs>,
     Ple: Parser<'a,T,Re>,
 {
-    and_then(
-        more(left(elem,sep),ZERO), 
-        last_elem.option(), 
-        |(mut a,b)| { match b {
-                Some(x) => {a.push(x); a},
-                None    => a,
-        }})   
+    map(and_then(more_zero(left(elem,sep)), last_elem.option(), 
+        |(mut a,b)| { 
+           if let Some(r) = b { a.push(r); }
+           a 
+        }),
+        |(i,r)| { if r.is_empty() { Err(i) } else { Ok((i,r)) } }
+    )   
 }
 
 /// just usefull function

@@ -16,21 +16,21 @@ let d = (" CONNECT linkedin.com 1/2/4".as_bytes(),
            (1,2,4),
         ));
               
- let p1 = right_opt(seq(is_space,SeqCount::None), seq(is_alpha_upper,SeqCount::None));
+ let p1 = right_opt(seq(is_space), seq(is_alpha_upper));
  let r1 = p1.parse(d.0);
  assert_eq!(r1, Ok((&d.0[8..], &d.0[1..8])));
 }
    
 #[test]
 fn t2() {    
-    let p=left_opt(seq(is_alpha_upper,SeqCount::Exact(3)), seq(is_space,SeqCount::None));
+    let p=left_opt(seq_exact(is_alpha_upper,3), seq(is_space));
     let r=p.parse(b"GET HTTttp");
     assert_eq!(Ok(("HTTttp".as_bytes(),"GET".as_bytes())), r);
 }
 
 #[test]
 fn t3() {    
-    let p=seq(is_alpha_upper,SeqCount::None).option();
+    let p=seq(is_alpha_upper).option();
     let r=p.parse(b"GET HTTttp");
     assert_eq!(Ok((" HTTttp".as_bytes(),Some("GET".as_bytes()))), r);
 }
@@ -47,12 +47,12 @@ fn t_find() {
 fn t_find_sep_pair() {
 let data="mnb mnbmb bmnm jkmn CONNECT: 1 mnbnm mnmn/r/n nbn".as_bytes();
 
-let space = seq(is_space,SeqCount::None);  
+let space = seq(is_space);  
 let parser=find(
     sep_pair(
         starts_with(b"CONNECT"),
         right_opt(space, any(b":")),
-        right_opt(space, seq(is_dec_digit,SeqCount::None))
+        right_opt(space, seq(is_dec_digit))
     ));
  
 let result=parser.parse(data);
@@ -62,8 +62,8 @@ assert_eq!(Ok((" mnbnm mnmn/r/n nbn".as_bytes(),("CONNECT".as_bytes(),"1".as_byt
 #[test]
 fn t_more() {
 let data="b:12 b:2 jkmn CONNECT: 1 mnbnm mnmn/r/n nbn".as_bytes();  
-let search_it = find(seq(is_dec_digit,SeqCount::None));
-let p = search_it.more(NO_ZERO).parse(data);
+let search_it = find(seq(is_dec_digit));
+let p = search_it.more().parse(data);
 
 assert_eq!(Ok((" mnbnm mnmn/r/n nbn".as_bytes(),Vec::from(["12".as_bytes(), "2".as_bytes(), "1".as_bytes()]))), p);
 }
@@ -71,8 +71,8 @@ assert_eq!(Ok((" mnbnm mnmn/r/n nbn".as_bytes(),Vec::from(["12".as_bytes(), "2".
 #[test]
 fn t_find1() {
 let data="b:12 b:2 jkmn CONNECT: 1 mnbnm mnmn/r/n nbn".as_bytes();  
-let search_it = find(seq(is_dec_digit,SeqCount::None));
-let p = search_it.more(NO_ZERO).parse(data);
+let search_it = find(seq(is_dec_digit));
+let p = search_it.more().parse(data);
 
 assert_eq!(Ok((" mnbnm mnmn/r/n nbn".as_bytes(),Vec::from(["12".as_bytes(), "2".as_bytes(), "1".as_bytes()]))), p);
 }
@@ -81,8 +81,8 @@ assert_eq!(Ok((" mnbnm mnmn/r/n nbn".as_bytes(),Vec::from(["12".as_bytes(), "2".
 fn t_alt() {
     let data="b:12 b:2 jkmn CONNECT: 1 mnbnm mnmn/r/n nbn".as_bytes();
 
-    let s1 = seq(is_any,SeqCount::Exact(1));  
-    let s2 = seq(is_any,SeqCount::Exact(2)); 
+    let s1 = seq_exact(is_any,1);  
+    let s2 = seq_exact(is_any,2); 
     let (_i,r) = (s2,s1).choice(data).unwrap();
     assert_eq!(r, b"b:");
     ()
@@ -99,9 +99,9 @@ pub struct Color {
 
 let input = "#2F14DF".as_bytes();
 
-let hex_color = seq(is_hex_digit,SeqCount::Exact(2));
+let hex_color = seq_exact(is_hex_digit,2);
 let (input,_) = starts_with(b"#").parse(input).unwrap();
-let (_input,c) = hex_color.more(NO_ZERO).parse(input).unwrap();
+let (_input,c) = hex_color.more_exact(3).parse(input).unwrap();
 let (r,_) = u8::from_radix_16(c[0]);
 let (g,_) = u8::from_radix_16(c[1]);
 let (b,_) = u8::from_radix_16(c[2]);
@@ -113,7 +113,7 @@ assert_eq!(Color{red: 47, green: 20, blue: 223}, color);
 #[test]
 fn t_exact() {
 let data="bb".as_bytes();
-let p = seq(is_any,SeqCount::Exact(3)).parse(data).ok();  
+let p = seq_exact(is_any,3).parse(data).ok();  
 assert_eq!(None, p);
 }
 
@@ -121,7 +121,7 @@ assert_eq!(None, p);
 fn t_exact1() {
     use byteorder::{ByteOrder, BE}; 
     let data = [4, 7];
-    let p = map(seq(is_any,SeqCount::Exact(3)),|x|{BE::read_u24(x) as usize});
+    let p = fmap(seq_exact(is_any,3),|x|{BE::read_u24(x) as usize});
     assert_eq!(None, p.parse(&data).ok());
 }
 
@@ -134,8 +134,8 @@ fn t_u8ext() {
 
 #[test]
 fn t_sep_list() { 
-    let space   = seq(is_space,SeqCount::None); 
-    let element = seq(is_alpha,SeqCount::Exact(1));  
+    let space   = seq(is_space); 
+    let element = seq_exact(is_alpha,1);  
     let separ   = starts_with(b",");  
     let list = sep_list( 
             between_opt(space,element,space),
@@ -182,9 +182,9 @@ fn t_sep_list() {
 #[test]
 fn t_t_f() { 
     let data: &[u8] = b"true|false truefalse";
-    let p_true =  map(starts_with(b"true"), |_|true);
-    let p_false = map(starts_with(b"false"), |_|false);
-    let (_input, result) = find((p_false,p_true).alt()).more(ZERO).parse(data).unwrap();
+    let p_true =  fmap(starts_with(b"true"), |_|true);
+    let p_false = fmap(starts_with(b"false"), |_|false);
+    let (_input, result) = find((p_false,p_true).alt()).more_zero().parse(data).unwrap();
     assert_eq!(vec![true,false,true,false], result);
 }
 

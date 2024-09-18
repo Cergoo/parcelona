@@ -90,7 +90,7 @@ where
     Pe:  Parser<'a,u8,Re>,
     Ps:  Parser<'a,u8,Rs>,
 {   
-	let space = seq(is_space,SeqCount::None);
+	let space = seq(is_space);
 	sep_list( 
     between_opt(space,elem,space),
     sep,
