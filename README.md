@@ -13,16 +13,12 @@ pub struct Color {
   pub green: u8,
   pub blue: u8,
 }
-
 let input = "#2F14DF".as_bytes();
 
-let hex_color = seq_exact(is_hex_digit,2);
+let hex_color = fmap(seq_exact(is_hex_digit,2),|x| {let (r,_) = u8::from_radix_16(x); r});
 let (input,_) = starts_with(b"#").parse(input).unwrap();
-let (input,c) = hex_color.more_exact(3).parse(input).unwrap();
-let (r,_) = u8::from_radix_16(c[0]);
-let (g,_) = u8::from_radix_16(c[1]);
-let (b,_) = u8::from_radix_16(c[2]);
-let color = Color{ red:r, green:g, blue:b };
+let (_input,c) = hex_color.more_exact(3).parse(input).unwrap();
+let color = Color{ red:c[0], green:c[1], blue:c[2] };
 
 assert_eq!(Color{red: 47, green: 20, blue: 223}, color);
 }
@@ -45,7 +41,6 @@ This core of library and has parsers:
 - `seq_min`
 - `seq_range`
 
-
 and has many parser combinators:
 - `not (parser)`
 - `map (parser,Fn)`
@@ -66,6 +61,7 @@ and has many parser combinators:
 - `find_stop (parser,parser)`
 - `find (parser)`
 - `sep_pair (parser,parser,parser)`
+- `sep_pair_opt (parser,parser,parser)`
 - `between (parser,parser,parser)`
 - `between_opt (parser,parser,parser)`
 - `and_then (parser,parser,Fn)`

@@ -99,13 +99,10 @@ pub struct Color {
 
 let input = "#2F14DF".as_bytes();
 
-let hex_color = seq_exact(is_hex_digit,2);
+let hex_color = fmap(seq_exact(is_hex_digit,2),|x| {let (r,_) = u8::from_radix_16(x); r});
 let (input,_) = starts_with(b"#").parse(input).unwrap();
 let (_input,c) = hex_color.more_exact(3).parse(input).unwrap();
-let (r,_) = u8::from_radix_16(c[0]);
-let (g,_) = u8::from_radix_16(c[1]);
-let (b,_) = u8::from_radix_16(c[2]);
-let color = Color{ red:r, green:g, blue:b };
+let color = Color{ red:c[0], green:c[1], blue:c[2] };
 
 assert_eq!(Color{red: 47, green: 20, blue: 223}, color);
 }
@@ -177,6 +174,10 @@ fn t_sep_list() {
     let (_i,r) = list.parse(&data).unwrap();
     let r: Vec<u8> = fflaten(r);
     assert_eq!(b"h".to_vec(), r);
+
+    let data: &[u8] = b" 1 2";
+    let r = list.parse(&data);
+    assert_eq!(Err(data), r);
 }
 
 #[test]

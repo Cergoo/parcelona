@@ -1,6 +1,6 @@
 [package]
 name = "parcelona"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Cergoo"]
 edition = "2021"
 description = "minimalistic elegance parser combinator library"

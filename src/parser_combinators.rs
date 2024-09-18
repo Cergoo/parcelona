@@ -433,6 +433,16 @@ where
     pair(left(p1,sep),p2)   
 }
 
+/// combinator separated pair optional
+pub fn sep_pair_opt<'a,T:'a,P1,P_,P2,R1,R2,R_>(p1:P1,sep:P_,p2:P2) -> impl Parser<'a,T,(R1,R2)>
+where
+    P1: Parser<'a,T,R1>,
+    P2: Parser<'a,T,R2>,
+    P_: Parser<'a,T,R_>,
+{
+    pair(left_opt(p1,sep),p2)   
+}
+
 /// combinator element between
 pub fn between<'a,T:'a,P1,P,P2,R1,R,R2>(p1:P1,p:P,p2:P2) -> impl Parser<'a,T,R>
 where
