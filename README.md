@@ -16,8 +16,7 @@ pub struct Color {
 let input = "#2F14DF".as_bytes();
 
 let hex_color = fmap(seq_exact(is_hex_digit,2),|x| {let (r,_) = u8::from_radix_16(x); r});
-let (input,_) = starts_with(b"#").parse(input).unwrap();
-let (_input,c) = hex_color.more_exact(3).parse(input).unwrap();
+let (_input,c) = right(starts_with(b"#"), hex_color.more_exact(3)).parse(input).unwrap();
 let color = Color{ red:c[0], green:c[1], blue:c[2] };
 
 assert_eq!(Color{red: 47, green: 20, blue: 223}, color);
