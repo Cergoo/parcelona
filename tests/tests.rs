@@ -226,6 +226,21 @@ fn t_permut_part1() {
     assert_eq!(b"false".as_slice(), r.2.unwrap());
 }
 
+
+#[test]
+fn t_permut_part1_1() { 
+    let data: &[u8] = b"truefalse12";
+    let t1 = starts_with(b"true");
+    let t2 = starts_with(b"false");
+    let t3 = fmap(seq(is_dec_digit),|x| {let (r,_) = u8::from_radix_10(x); r});
+    let (_data, (true,r)) = permut_part((t3,t1,t2)).parse(data).unwrap() else {  assert_eq!(true, false); return; };
+
+    assert_eq!(12, r.0.unwrap());
+    assert_eq!(b"true".as_slice(), r.1.unwrap());
+    assert_eq!(b"false".as_slice(), r.2.unwrap());
+}
+
+
 #[test]
 fn t_permut_part2() { 
     let data: &[u8] = b"truefalse12";

@@ -25,7 +25,7 @@ where
 }
 
 /// Alt trait combinator, it is implement for tuples default max 16 elements
-/// You can set flag `feature = "alt_tuple_32"` for up to tuple max 32 elements or `feature = "alt_tuple_64"` for up to tuple max 64 elements
+/// You can set cargo.toml flag `feature = "alt_tuple_32"` for up to tuple max 32 elements or `feature = "alt_tuple_64"` for up to tuple max 64 elements
 pub trait Alt<'a,I:'a,O>: Copy {
     fn choice(&self, input:&'a [I]) -> ParseResult<'a,I,O>;
     fn alt(self) -> impl Parser<'a,I,O> {
@@ -61,7 +61,7 @@ alt_impl!(16);  //max 255
 
 
 /// Permut trait combinator, it is emplement for typles default max 16 elements
-/// You can set flag `feature = "alt_tuple_32"` for up to tuple max 32 elements or `feature = "alt_tuple_64"` for up to tuple max 64 elements
+/// You can set cargo.toml flag `feature = "alt_tuple_32"` for up to tuple max 32 elements or `feature = "alt_tuple_64"` for up to tuple max 64 elements
 pub trait Permut<'a,I:'a,O,Oo>: Copy {
     fn permutation_part(&self, input:&'a [I]) -> ParseResult<'a,I,O>;
     fn permutation(&self, input:&'a [I]) -> ParseResult<'a,I,Oo>;
@@ -71,6 +71,17 @@ pub trait Permut<'a,I:'a,O,Oo>: Copy {
     /// (P1,P2,P3).permut() -> impl Parser<'a,I,(O1,O2,O3)>     
     fn permut(self) -> impl Parser<'a,I,Oo>     { move |i| { self.permutation(i) } }
 }
+
+/// permut combinator
+pub fn permut<'a,I:'a,O,Oo,T:Permut<'a,I,O,Oo>>(input: T) -> impl Parser<'a,I,Oo> {
+    move |i| input.permutation(i)
+}
+
+/// permut_part combinator
+pub fn permut_part<'a,I:'a,O,Oo,T:Permut<'a,I,O,Oo>>(input: T) -> impl Parser<'a,I,O> {
+    move |i| input.permutation_part(i)
+}
+
 
 #[cfg(feature = "alt_tuple_32")]
 permut_impl!(32);  
