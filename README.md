@@ -1,6 +1,6 @@
 # parcelona
 
-minimalistic elegance parser combinator library
+minimalistic elegant parser combinators library
 
 ```rust
 #[test]
@@ -56,7 +56,9 @@ and has many parser combinators:
 - `more_min (parser,usize)`
 - `more_exact (parser,usize)`
 - `more_range (parser,(usize,usize))`
-- `alt ((tuple of rarsers))`
+- `alt ((tuple of parsers))`
+- `permut ((tuple of parsers))`
+- `permut_part ((tuple of parsers))`
 - `find_stop (parser,parser)`
 - `find (parser)`
 - `sep_pair (parser,parser,parser)`

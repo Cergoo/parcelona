@@ -1,6 +1,6 @@
 //!  Parcelona minimalistic elegance parser combinator library.
 //!
-use parcelona_macros_derive::alt_impl;
+use parcelona_macros_derive::{alt_impl,permut_impl};
 
 pub type ParseResult<'a,I,O> = std::result::Result<(&'a [I],O),&'a [I]>;
  
@@ -24,7 +24,8 @@ where
     fn parse(&self, input:&'a [I]) -> ParseResult<'a,I,O> {  self(input)  }
 }
 
-/// Alt trait combinator
+/// Alt trait combinator, it is implement for tuples default max 16 elements
+/// You can set flag `feature = "alt_tuple_32"` for up to tuple max 32 elements or `feature = "alt_tuple_64"` for up to tuple max 64 elements
 pub trait Alt<'a,I:'a,O>: Copy {
     fn choice(&self, input:&'a [I]) -> ParseResult<'a,I,O>;
     fn alt(self) -> impl Parser<'a,I,O> {
@@ -42,17 +43,10 @@ where
     }
 }
 
-impl<'a,I:'a,O,P1,P2,P3> Alt<'a,I,O> for (P1,P2,P3)
-where
-    P1: Parser<'a,I,O>,
-    P2: Parser<'a,I,O>,
-    P3: Parser<'a,I,O>,
-{
-    fn choice(&self, input: &'a[I]) -> ParseResult<'a,I,O> {
-        self.0.parse(input).or(self.1.parse(input)).or(self.2.parse(input))
-    }
+/// alt combinator
+pub fn alt<'a,I:'a,O,T:Alt<'a,I,O>>(input: T) -> impl Parser<'a,I,O> {
+    move |i| input.choice(i)
 }
-
 
 //
 
@@ -66,7 +60,26 @@ alt_impl!(64);
 alt_impl!(16);  //max 255
 
 
+/// Permut trait combinator, it is emplement for typles default max 16 elements
+/// You can set flag `feature = "alt_tuple_32"` for up to tuple max 32 elements or `feature = "alt_tuple_64"` for up to tuple max 64 elements
+pub trait Permut<'a,I:'a,O,Oo>: Copy {
+    fn permutation_part(&self, input:&'a [I]) -> ParseResult<'a,I,O>;
+    fn permutation(&self, input:&'a [I]) -> ParseResult<'a,I,Oo>;
+    /// (P1,P2,P3).permut_part() -> impl Parser<'a,I,(bool,(Option<O1>,Option<O2>,Option<O3>))>
+    /// `bool` element is `true` if all parts of tuple is Some
+    fn permut_part(self) -> impl Parser<'a,I,O> { move |i| { self.permutation_part(i) } }
+    /// (P1,P2,P3).permut() -> impl Parser<'a,I,(O1,O2,O3)>     
+    fn permut(self) -> impl Parser<'a,I,Oo>     { move |i| { self.permutation(i) } }
+}
 
+#[cfg(feature = "alt_tuple_32")]
+permut_impl!(32);  
+
+#[cfg(all(feature = "alt_tuple_64", not(feature = "alt_tuple_32")))] 
+permut_impl!(64);  
+
+#[cfg(not(any(feature = "alt_tuple_32", feature = "alt_tuple_64")))]
+permut_impl!(16);  //max 255
 
 
 /// parser `data end`
@@ -416,11 +429,6 @@ where
         }
         Ok((next_input1, result))
     }
-}
-
-/// alt combinator
-pub fn alt<'a,I:'a,O,T:Alt<'a,I,O>>(input: T) -> impl Parser<'a,I,O> {
-    move |i| input.choice(i)
 }
 
 /// combinator separated pair

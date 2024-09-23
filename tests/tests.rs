@@ -1,7 +1,7 @@
 use parcelona::parser_combinators::{*};
 use parcelona::u8::{*};
 use parcelona::u8ext::{*};
-use atoi::FromRadix16;
+use atoi::{FromRadix16,FromRadix10};
 
 
 
@@ -198,4 +198,70 @@ fn t_simple() {
 
     assert_eq!(b"tr", r1);
     assert_eq!(b"ue", r2);
+}
+
+#[test]
+fn t_permut() { 
+    let data: &[u8] = b"truefalse12";
+    let t1 = starts_with(b"true");
+    let t2 = starts_with(b"false");
+    let t3 = fmap(seq(is_dec_digit),|x| {let (r,_) = u8::from_radix_10(x); r});
+    let (_data, (r1,r2,r3)) = (t3,t1,t2).permut().parse(data).unwrap();
+
+    assert_eq!(12, r1);
+    assert_eq!(b"true".as_slice(), r2);
+    assert_eq!(b"false".as_slice(), r3);
+}
+
+#[test]
+fn t_permut_part1() { 
+    let data: &[u8] = b"truefalse12";
+    let t1 = starts_with(b"true");
+    let t2 = starts_with(b"false");
+    let t3 = fmap(seq(is_dec_digit),|x| {let (r,_) = u8::from_radix_10(x); r});
+    let (_data, (true,r)) = (t3,t1,t2).permut_part().parse(data).unwrap() else {  assert_eq!(true, false); return; };
+
+    assert_eq!(12, r.0.unwrap());
+    assert_eq!(b"true".as_slice(), r.1.unwrap());
+    assert_eq!(b"false".as_slice(), r.2.unwrap());
+}
+
+#[test]
+fn t_permut_part2() { 
+    let data: &[u8] = b"truefalse12";
+    let t1 = starts_with(b"true");
+    let t2 = starts_with(b"false");
+    let t3 = fmap(seq(is_dec_digit),|x| {let (r,_) = u8::from_radix_10(x); r});
+    match (t3,t1,t2).permut_part().parse(data).unwrap() {  
+        (_data, (true,r)) => {
+            assert_eq!(true, r.0.is_some());
+            assert_eq!(true, r.1.is_some());
+            assert_eq!(true, r.2.is_some());
+        }
+        (_data, (false,r)) => {
+            if r.0.is_none() { }
+            if r.1.is_none() { }
+            if r.2.is_none() { }
+        }
+    };
+}
+
+#[test]
+fn t_permut_part3() { 
+    let data: &[u8] = b"truefalse";
+    let t1 = starts_with(b"true");
+    let t2 = starts_with(b"false");
+    let t3 = fmap(seq(is_dec_digit),|x| {let (r,_) = u8::from_radix_10(x); r});
+    match (t3,t1,t2).permut_part().parse(data).unwrap() {  
+        (_data, (true,r)) => {
+            assert_eq!(true, r.0.is_some());
+            assert_eq!(true, r.1.is_some());
+            assert_eq!(true, r.2.is_some());
+        }
+        (_data, (false,r)) => {
+            assert_eq!(true, r.0.is_none());
+            assert_eq!(true, r.1.is_some());
+            assert_eq!(true, r.2.is_some());
+        }
+    };
 }
