@@ -175,7 +175,7 @@ fn t_sep_list() {
 
     let data: &[u8] = b" 1 2";
     let r = list.parse(&data);
-    assert_eq!(Err(data), r);
+    assert_eq!(true, r.is_err());
 }
 
 #[test]

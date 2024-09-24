@@ -1,8 +1,42 @@
 //!  Parcelona minimalistic elegance parser combinator library.
 //!
 use parcelona_macros_derive::{alt_impl,permut_impl};
+use std::fmt;
 
-pub type ParseResult<'a,I,O> = std::result::Result<(&'a [I],O),&'a [I]>;
+pub type ParseResult<'a,I,O> = std::result::Result<(&'a [I],O),PErr<'a,I>>;
+
+/// type Error for parser
+#[derive(Debug,Clone)]
+pub struct PErr<'a,I> {
+    input: &'a[I],
+    user_msg: Vec<&'a str>,
+}
+
+impl<'a,I:'a> PErr<'a,I> {
+    /// constructor of new PErr
+    pub fn new(input: &'a[I]) -> Self {
+        let v = Vec::<&'a str>::new();
+        Self { input: input, user_msg: v, }
+    }   
+}
+
+impl<'a,I:'a+fmt::Debug> fmt::Display for PErr<'a,I> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "Err: {:?}", &self.input[..25])?;
+        for i in self.user_msg.iter().rev() {
+            writeln!(f, "{:?}", i)?;
+        }
+        Ok(())
+    }
+}
+
+impl<'a,I:std::cmp::PartialEq> PartialEq for PErr<'a,I>  {
+    fn eq(&self, other: &Self) -> bool {
+        self.input == other.input
+    }
+}
+
+
  
 /// Main parser definition
 pub trait Parser<'a,I:'a,O>: Copy {
@@ -94,8 +128,8 @@ permut_impl!(16);  //max 255
 
 
 /// parser `data end`
-pub fn data_end<T>(a:&[T]) -> Result<(&[T],&[T]), &[T]> {
-    if !a.is_empty() {  Err(a) } else { Ok((a,a)) }
+pub fn data_end<'a,T>(a:&'a[T]) -> Result<(&[T],&[T]), PErr<'a,T>> {
+    if !a.is_empty() {  Err(PErr::new(a)) } else { Ok((a,a)) }
 }
 
 /// parser 'any'
@@ -104,7 +138,7 @@ pub fn any<'a,T:'a+Eq+Clone>(pattern: &'a[T]) -> impl Parser<'a,T,&'a[T]> {
         if !input.is_empty() && pattern.contains(&input[0]) { 
             return Ok(split_at_revers(input, 1));
         } 
-        Err(input)
+        Err(PErr::new(input))
     }
 }
 
@@ -114,7 +148,7 @@ pub fn starts_with<'a,T:'a+Eq+Clone>(pattern: &'a[T]) -> impl Parser<'a,T,&'a[T]
         if input.starts_with(pattern) {
            return  Ok(split_at_revers(input, pattern.len()));
         } 
-        Err(input) 
+        Err(PErr::new(input)) 
     }
 }
 
@@ -124,7 +158,7 @@ pub fn starts_with_any<'a,T:'a+Eq+Clone>(patterns: &'a[&'a[T]]) -> impl Parser<'
         for i in patterns { 
             if input.starts_with(i) { return  Ok(split_at_revers(input, i.len())); }
         }
-        Err(input)
+        Err(PErr::new(input))
     }
 }
 
@@ -136,7 +170,8 @@ where
      move |input:&'a[T]| {  
          let mut c:usize = 0;    
          for i in input { if c<count_max&&p(i) {c+=1;} else {break;} }
-         if c>0 { Ok(split_at_revers(input, c)) } else { Err(input) }
+         if c>0 { return Ok(split_at_revers(input, c)); }
+         Err(PErr::new(input))
      }
 }
 
@@ -148,7 +183,7 @@ where
      move |input:&'a[T]| {  
          let mut c:usize = 0;    
          for i in input { if p(i) {c+=1;} else {break;} }
-         if c<count_min { Err(input) } else { Ok(split_at_revers(input, c)) } 
+         if c<count_min { Err(PErr::new(input)) } else { Ok(split_at_revers(input, c)) } 
      }
 }
 
@@ -160,7 +195,7 @@ where
      move |input:&'a[T]| {  
          let mut c:usize = 0;    
          for i in input { if c<range.1&&p(i) {c+=1;} else {break;} }
-         if c<range.0 { Err(input) } else { Ok(split_at_revers(input, c)) } 
+         if c<range.0 { Err(PErr::new(input)) } else { Ok(split_at_revers(input, c)) } 
      }
 }
 
@@ -172,7 +207,7 @@ where
      move |input:&'a[T]| {  
          let mut c:usize = 0;    
          for i in input { if c<count_exact&&p(i) {c+=1;} else {break;} }
-         if c<count_exact { Err(input) } else { Ok(split_at_revers(input, c)) } 
+         if c<count_exact { Err(PErr::new(input)) } else { Ok(split_at_revers(input, c)) } 
      }
 }
 
@@ -184,7 +219,7 @@ where
      move |input:&'a[T]| {  
          let mut c:usize = 0;    
          for i in input { if p(i) {c+=1;} else {break;} }
-         if c<1 { Err(input) } else { Ok(split_at_revers(input, c)) } 
+         if c<1 { Err(PErr::new(input)) } else { Ok(split_at_revers(input, c)) } 
      }
 }
 
@@ -212,7 +247,7 @@ where
 {
     move |input| {
         match parser.parse(input) {
-            Ok(_) => Err(input),
+            Ok(_) => Err(PErr::new(input)),
             _     => Ok((input,())),
     }}
 }
@@ -237,6 +272,14 @@ where
     F: Fn((&'a[T],R1)) -> ParseResult<'a,T,R2> + Copy,
 {
     move |input| { map_fn(parser.parse(input)?) }
+}
+
+/// combinator map_err
+pub fn user_msg_err<'a,T:'a,P,R>(parser: P, msg: &'a str) -> impl Parser<'a,T,R>
+where
+    P: Parser<'a,T,R>,
+{
+    move |input| { parser.parse(input).map_err(|mut x|{x.user_msg.push(msg); x}) }
 }
 
 
@@ -318,8 +361,8 @@ where
             let r = p.parse(new_input);
             if r.is_ok() { return r; }
             let s = stop.parse(new_input);
-            if s.is_ok() { return Err(input); }
-            (new_input,_) = take_record(new_input,1).map_err(|_|input)?;
+            if s.is_ok() { return Err(PErr::new(new_input)); }
+            (new_input,_) = take_record(new_input,1)?;
         }
 }}
 
@@ -333,7 +376,7 @@ where
         loop {    
             let r = p.parse(new_input);
             if r.is_ok() { return r; }
-            (new_input,_) = take_record(new_input,1).map_err(|_|input)?;
+            (new_input,_) = take_record(new_input,1)?;
         }
 }}
 
@@ -351,7 +394,7 @@ where
             if result.len()==count_max { break; } 
             next_input1 = next_input2;
         }
-        if result.is_empty() { Err(input) } else { Ok((next_input1, result)) }
+        if result.is_empty() { Err(PErr::new(next_input1)) } else { Ok((next_input1, result)) }
     }
 }
 
@@ -368,7 +411,7 @@ where
             result.push(r);
             next_input1 = next_input2;
         }
-        if result.len()<count_min { Err(input) } else { Ok((next_input1, result)) }
+        if result.len()<count_min { Err(PErr::new(next_input1)) } else { Ok((next_input1, result)) }
     }
 }
 
@@ -386,7 +429,7 @@ where
             if result.len()==range.1 { break; }
             next_input1 = next_input2;
         }
-        if result.len()<range.0 { Err(input) } else { Ok((next_input1, result)) }
+        if result.len()<range.0 { Err(PErr::new(next_input1)) } else { Ok((next_input1, result)) }
     }
 }
 
@@ -404,7 +447,7 @@ where
             if result.len()==count_exact { break; }
             next_input1 = next_input2;
         }
-        if result.len()<count_exact { Err(input) } else { Ok((next_input1, result)) }
+        if result.len()<count_exact { Err(PErr::new(next_input1)) } else { Ok((next_input1, result)) }
     }
 }
 
@@ -421,7 +464,7 @@ where
             result.push(r);
             next_input1 = next_input2;
         }
-        if result.is_empty() { Err(input) } else { Ok((next_input1, result)) }
+        if result.is_empty() { Err(PErr::new(next_input1)) } else { Ok((next_input1, result)) }
     }
 }
 
@@ -513,7 +556,7 @@ where
            if let Some(r) = b { a.push(r); }
            a 
         }),
-        |(i,r)| { if r.is_empty() { Err(i) } else { Ok((i,r)) } }
+        |(i,r)| { if r.is_empty() { Err(PErr::new(i)) } else { Ok((i,r)) } }
     )   
 }
 
@@ -524,8 +567,8 @@ pub fn split_at_revers<T>(input: &[T], count: usize) -> (&[T], &[T]) {
 }
 
 /// just read record
-pub fn take_record<T>(b: &[T], l: usize) -> Result<(&[T], &[T]), &[T]> {
-	if b.len() < l { return Err(b); }
+pub fn take_record<'a,T>(b: &'a[T], l: usize) -> Result<(&[T], &[T]), PErr<'a,T>> {
+	if b.len() < l { return Err(PErr::new(b)); }
 	Ok(split_at_revers(b, l))
 }
 

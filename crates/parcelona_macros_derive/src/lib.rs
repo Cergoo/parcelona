@@ -170,7 +170,7 @@ pub fn permut_impl(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     match count {
                         c if c == #v     => Ok((new_input,(true, r_tuple))),
                         c if c>0         => Ok((new_input,(false, r_tuple))),
-                        _                => Err(input),  
+                        _                => Err(PErr::new(input)),  
                     }
                 }
             
@@ -188,7 +188,7 @@ pub fn permut_impl(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         if count == count_old { break; }
                         count_old = count;
                     }
-                    if count == #v { Ok((new_input, ( #(r_tuple.#num.unwrap()),* ))) } else { Err(input) }
+                    if count == #v { Ok((new_input, ( #(r_tuple.#num.unwrap()),* ))) } else { Err(PErr::new(input)) }
                 }
 
 

@@ -1,6 +1,10 @@
 # parcelona
 
 minimalistic elegant parser combinators library
+- full zero copy
+- parsing over &[T] 
+- no have partial parsing
+
 
 ```rust
 #[test]
