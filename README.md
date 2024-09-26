@@ -50,12 +50,12 @@ and has many parser combinators:
 - `fmap (parser,Fn)`
 - `option (parser)`
 - `pair (parser,parser)`
+- `or (parser,parser)`
 - `left (parser,parser)`
 - `right (parser,parser)`
 - `left_opt (parser,parser)`
 - `right_opt (parser,parser)`
 - `more (parser)`
-- `more_zero (parser)`
 - `more_max (parser,usize)`
 - `more_min (parser,usize)`
 - `more_exact (parser,usize)`
@@ -70,6 +70,7 @@ and has many parser combinators:
 - `between (parser,parser,parser)`
 - `between_opt (parser,parser,parser)`
 - `and_then (parser,parser,Fn)`
+- `or_then (parser,parser,Fn)`
 - `sep_list (parser,parser,parser)`
 
 ### u8

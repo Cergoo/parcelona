@@ -69,55 +69,107 @@ pub fn alt_impl(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 }
 
 
+
 /*
 // This is what we want to get using macro
-impl<'a,I:'a,O1,O2,P1,P2> Permut<'a,I,(bool,(Option<O1>,Option<O2>)),(O1,O2)> for (P1,P2)
-where
-    P1: Parser<'a,I,O1>,
-    P2: Parser<'a,I,O2>,
-{
-    fn permutation_part(&self, input: &'a[I]) -> ParseResult<'a,I,(bool,(Option<O1>,Option<O2>))> {
-        let mut v = vec![0,1];
-        let mut r_tuple = (None::<O1>,None::<O2>);
-        let mut count:usize = 0;
-        let mut count_old:usize = 0;
-        let mut new_input = input;
-        loop {
-            if let Some(i) = v.iter().position(|&r| r == 0) { 
-                if let Ok((inp,r)) = self.0.parse(new_input) { r_tuple.0 = Some(r); v[i] = -1; new_input = inp; count+=1; } 
+impl<'a,I:'a,P0,O0,P1,O1,> Permut<'a, I, (bool, (Option<O0>, Option<O1>)), (O0, O1)> for (P0, P1)
+    where
+        P0: Parser<'a, I, O0>,
+        P1: Parser<'a, I, O1>,
+    {
+        fn permutation_part(
+            &self,
+            input: &'a [I],
+        ) -> ParseResult<'a, I, (bool, (Option<O0>, Option<O1>))> {
+            let mut v: Vec<usize> = Vec::with_capacity(2);
+            for i in 0..2 {
+                v.push(i);
             }
-            if let Some(i) = v.iter().position(|&r| r == 1) { 
-                if let Ok((inp,r)) = self.1.parse(new_input) { r_tuple.1 = Some(r); v[i] = -1; new_input = inp; count+=1; } 
+            let mut r_tuple = (None::<O0>, None::<O1>);
+            let mut count: usize = 0;
+            let mut count_old: usize = 0;
+            let mut new_input = input;
+            let mut er: PErr<'a, I> = Default::default();
+            loop {
+                if v[0] == 0 {
+                    match self.0.parse(new_input) {
+                        Ok((inp, r)) => {
+                            r_tuple.0 = Some(r);
+                            v[0] = usize::MAX;
+                            new_input = inp;
+                            count += 1;
+                        }
+                        Err(e) => er = e,
+                    }
+                }
+                if v[1] == 1 {
+                    match self.1.parse(new_input) {
+                        Ok((inp, r)) => {
+                            r_tuple.1 = Some(r);
+                            v[1] = usize::MAX;
+                            new_input = inp;
+                            count += 1;
+                        }
+                        Err(e) => er = e,
+                    }
+                }
+                if count == count_old {
+                    break;
+                }
+                count_old = count;
             }
-            if count == count_old { break; }
-            count_old = count;
+            match count {
+                c if c == 2 => Ok((new_input, (true, r_tuple))),
+                c if c > 0 => Ok((new_input, (false, r_tuple))),
+                _ => Err(er),
+            }
         }
-        match count {
-            c if c == 2      => Ok((new_input,(true, r_tuple))),
-            c if c>0         => Ok((new_input,(false, r_tuple))),
-            _                => Err(input),  
-        }    
-    }
 
-    fn permutation(&self, input: &'a[I]) -> ParseResult<'a,I,(O1,O2))> {
-        let mut v = vec![0,1];
-        let mut r_tuple = (None::<O1>,None::<O2>);
-        let mut count:usize = 0;
-        let mut count_old:usize = 0;
-        let mut new_input = input;
-        loop {
-            if let Some(i) = v.iter().position(|&r| r == 0) { 
-                if let Ok((inp,r)) = self.0.parse(new_input) { r_tuple.0 = Some(r); v[i] = -1; new_input = inp; count+=1; } 
+        fn permutation(&self, input: &'a [I]) -> ParseResult<'a, I, (O0, O1)> {
+            let mut v: Vec<usize> = Vec::with_capacity(2);
+            for i in 0..2 {
+                v.push(i);
             }
-            if let Some(i) = v.iter().position(|&r| r == 1) { 
-                if let Ok((inp,r)) = self.1.parse(new_input) { r_tuple.1 = Some(r); v[i] = -1; new_input = inp; count+=1; } 
+            let mut r_tuple = (None::<O0>, None::<O1>);
+            let mut count: usize = 0;
+            let mut count_old: usize = 0;
+            let mut new_input = input;
+            let mut er: PErr<'a, I> = Default::default();
+            loop {
+                if v[0] == 0 {
+                    match self.0.parse(new_input) {
+                        Ok((inp, r)) => {
+                            r_tuple.0 = Some(r);
+                            v[0] = usize::MAX;
+                            new_input = inp;
+                            count += 1;
+                        }
+                        Err(e) => er = e,
+                    }
+                }
+                if v[1] == 1 {
+                    match self.1.parse(new_input) {
+                        Ok((inp, r)) => {
+                            r_tuple.1 = Some(r);
+                            v[1] = usize::MAX;
+                            new_input = inp;
+                            count += 1;
+                        }
+                        Err(e) => er = e,
+                    }
+                }
+                if count == count_old {
+                    break;
+                }
+                count_old = count;
             }
-            if count == count_old { break; }
-            count_old = count;
+            if count == 2 {
+                Ok((new_input, (r_tuple.0.unwrap(), r_tuple.1.unwrap())))
+            } else {
+                Err(er)
+            }
         }
-        if count == 2 { Ok((new_input,r_tuple)) } else { Err(input) }    
     }
-}
 */
 /// permut_impl!(90); max val 255 elemets tuple (A, B, ...)
 #[proc_macro]
@@ -160,9 +212,13 @@ pub fn permut_impl(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     let mut count:usize = 0;
                     let mut count_old:usize = 0;
                     let mut new_input = input;
+                    let mut er:PErr<'a,I> = Default::default();
                     loop {
                         #(if v[#num] == #num { 
-                            if let Ok((inp,r)) = self.#num.parse(new_input) { r_tuple.#num = Some(r); v[#num] = usize::MAX; new_input = inp; count+=1; }
+                            match self.#num.parse(new_input) {
+                                Ok((inp,r)) => { r_tuple.#num = Some(r); v[#num] = usize::MAX; new_input = inp; count+=1; },
+                                Err(e)      => er = e, 
+                            }
                         })*
                         if count == count_old { break; }
                         count_old = count;
@@ -170,7 +226,7 @@ pub fn permut_impl(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     match count {
                         c if c == #v     => Ok((new_input,(true, r_tuple))),
                         c if c>0         => Ok((new_input,(false, r_tuple))),
-                        _                => Err(PErr::new(input)),  
+                        _                => Err(er),  
                     }
                 }
             
@@ -181,14 +237,18 @@ pub fn permut_impl(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     let mut count:usize = 0;
                     let mut count_old:usize = 0;
                     let mut new_input = input;
+                    let mut er:PErr<'a,I> = Default::default();
                     loop {
                         #(if v[#num] == #num { 
-                            if let Ok((inp,r)) = self.#num.parse(new_input) { r_tuple.#num = Some(r); v[#num] = usize::MAX; new_input = inp; count+=1; }
+                            match self.#num.parse(new_input) {
+                                Ok((inp,r)) => { r_tuple.#num = Some(r); v[#num] = usize::MAX; new_input = inp; count+=1; },
+                                Err(e)      => er = e, 
+                            }
                         })*
                         if count == count_old { break; }
                         count_old = count;
                     }
-                    if count == #v { Ok((new_input, ( #(r_tuple.#num.unwrap()),* ))) } else { Err(PErr::new(input)) }
+                    if count == #v { Ok((new_input, ( #(r_tuple.#num.unwrap()),* ))) } else { Err(er) }
                 }
 
 

@@ -183,7 +183,7 @@ fn t_t_f() {
     let data: &[u8] = b"true|false truefalse";
     let p_true =  fmap(starts_with(b"true"), |_|true);
     let p_false = fmap(starts_with(b"false"), |_|false);
-    let (_input, result) = find((p_false,p_true).alt()).more_zero().parse(data).unwrap();
+    let (_input, result) = find((p_false,p_true).alt()).more().parse(data).unwrap();
     assert_eq!(vec![true,false,true,false], result);
 }
 

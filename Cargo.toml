@@ -1,6 +1,6 @@
 [package]
 name = "parcelona"
-version = "0.3.2"
+version = "0.4.0"
 authors = ["Cergoo"]
 edition = "2021"
 description = "minimalistic elegance parser combinator library"
@@ -12,14 +12,20 @@ readme = "README.md"
 
 [dependencies]
 byteorder = "1.5.0"
-parcelona_macros_derive = { path = "./crates/parcelona_macros_derive", version = "0.2" }
+bstr = "1.10.0"
+parcelona_macros_derive = { path = "./crates/parcelona_macros_derive", version = "0.2.5" }
 
 [dev-dependencies]
 atoi = "2.0.0"
 byteorder = "1.5.0"
+bstr = "1.10.0"
 
 [features]
 alt_tuple_32 = []
 alt_tuple_64 = []
+
+[[example]]
+name = "parse_tag"
+path = "examples/parse_tag.rs"
 
 

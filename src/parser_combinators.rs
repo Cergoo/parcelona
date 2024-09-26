@@ -1,7 +1,8 @@
 //!  Parcelona minimalistic elegance parser combinator library.
 //!
 use parcelona_macros_derive::{alt_impl,permut_impl};
-use std::fmt;
+use std::{fmt,mem,default};
+use bstr::ByteSlice;
 
 pub type ParseResult<'a,I,O> = std::result::Result<(&'a [I],O),PErr<'a,I>>;
 
@@ -10,19 +11,38 @@ pub type ParseResult<'a,I,O> = std::result::Result<(&'a [I],O),PErr<'a,I>>;
 pub struct PErr<'a,I> {
     input: &'a[I],
     user_msg: Vec<&'a str>,
+    to_srt: bool,
 }
+
+impl<'a,I> default::Default for PErr<'a,I> {
+    fn default() -> Self {
+        Self { input: &[], user_msg: Vec::new(), to_srt: false, }
+    }
+}
+
+impl<'a,I:'a+std::fmt::Debug> std::error::Error for PErr<'a,I> {}
 
 impl<'a,I:'a> PErr<'a,I> {
     /// constructor of new PErr
     pub fn new(input: &'a[I]) -> Self {
-        let v = Vec::<&'a str>::new();
-        Self { input: input, user_msg: v, }
-    }   
+        Self { input: input, user_msg: Vec::<&str>::new(), to_srt: false, }
+    } 
+    /// set type to str for Display
+    pub fn fmt_str(&mut self) { self.to_srt=true; }  
 }
 
-impl<'a,I:'a+fmt::Debug> fmt::Display for PErr<'a,I> {
+impl<'a,I:'a+fmt::Debug> fmt::Display for PErr<'a, I> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "Err: {:?}", &self.input[..25])?;
+        let max_ln:usize = 95;
+        let part: &[I];
+        if self.input.len()>max_ln { part = &self.input[..95]; }
+        else { part = self.input; }
+        if self.to_srt {
+            unsafe {
+                let b = mem::transmute::<&[I], &[u8]>(part);
+                writeln!(f, "Err: {:?}", b.as_bstr())?;
+            }
+        } else { writeln!(f, "Err: {:?}", part)?; }
         for i in self.user_msg.iter().rev() {
             writeln!(f, "{:?}", i)?;
         }
@@ -47,8 +67,9 @@ pub trait Parser<'a,I:'a,O>: Copy {
     fn more_exact(self,c:usize) -> impl Parser<'a,I,Vec<O>>           { more_exact(self,c) }
     fn more_range(self,c:(usize,usize)) -> impl Parser<'a,I,Vec<O>>   { more_range(self,c) }
     fn more(self) -> impl Parser<'a,I,Vec<O>>                         { more(self) }
-    fn more_zero(self) -> impl Parser<'a,I,Vec<O>>                    { more_zero(self) }
     fn not(self) -> impl Parser<'a,I,()>                              { not(self) }
+    fn msg_err(self, msg:&'a str) -> impl Parser<'a,I,O>              { msg_err(self,msg) }
+    fn strerr(self) -> impl Parser<'a,I,O>                            { strerr(self) }
 }
 
 impl<'a,I:'a,F,O> Parser<'a,I,O> for F
@@ -129,16 +150,14 @@ permut_impl!(16);  //max 255
 
 /// parser `data end`
 pub fn data_end<'a,T>(a:&'a[T]) -> Result<(&[T],&[T]), PErr<'a,T>> {
-    if !a.is_empty() {  Err(PErr::new(a)) } else { Ok((a,a)) }
+    if !a.is_empty() { Err(PErr::new(a)) } else { Ok((a,a)) }
 }
 
 /// parser 'any'
 pub fn any<'a,T:'a+Eq+Clone>(pattern: &'a[T]) -> impl Parser<'a,T,&'a[T]> {
     move |input:&'a[T]| { 
-        if !input.is_empty() && pattern.contains(&input[0]) { 
-            return Ok(split_at_revers(input, 1));
-        } 
-        Err(PErr::new(input))
+        if check_starts_with_any_element(pattern, input) { Ok(split_at_revers(input, 1)) } 
+        else { Err(PErr::new(input)) }
     }
 }
 
@@ -155,12 +174,24 @@ pub fn starts_with<'a,T:'a+Eq+Clone>(pattern: &'a[T]) -> impl Parser<'a,T,&'a[T]
 ///  parser 'starts_with_any'
 pub fn starts_with_any<'a,T:'a+Eq+Clone>(patterns: &'a[&'a[T]]) -> impl Parser<'a,T,&'a[T]> {
     move |input:&'a[T]| {
-        for i in patterns { 
-            if input.starts_with(i) { return  Ok(split_at_revers(input, i.len())); }
-        }
+        let l = check_starts_with_any_part(patterns, input);
+        if l>0 { return  Ok(split_at_revers(input, l)); }
         Err(PErr::new(input))
     }
 }
+
+///  function for sec_ext
+pub fn check_starts_with_any_part<'a,T:'a+Eq+Clone>(patterns: &'a[&'a[T]], input:&'a[T]) -> usize {
+    for i in patterns { if input.starts_with(i) { return i.len(); } }
+    0
+}
+
+///  function for sec_ext
+pub fn check_starts_with_any_element<'a,T:'a+Eq+Clone>(patterns: &'a[T], input:&'a[T]) -> bool {
+    !input.is_empty() && patterns.contains(&input[0])
+}
+
+
 
 /// parser `sequence maximum`
 pub fn seq_max<'a,P,T:'a+Eq+Clone>(p: P, count_max:usize) -> impl Parser<'a,T,&'a[T]>
@@ -223,6 +254,23 @@ where
      }
 }
 
+/// parser `sequence extendet`
+pub fn seq_ext<'a,P,T:'a+Eq+Clone>(p: P) -> impl Parser<'a,T,&'a[T]>
+where
+    P: Fn(& [T]) -> usize+Copy+'a,
+{
+     move |input:&'a[T]| {     
+        let mut new_input = input;
+        loop {
+            let l = p(new_input); 
+            if l<1 || new_input.len()<l {break;} 
+            (new_input, _) = split_at_revers(new_input, l); 
+        } 
+        let c = input.len() - new_input.len();
+        if c==0 { Err(PErr::new(input)) } else { Ok(split_at_revers(input, c)) } 
+     }
+}
+
 #[inline]
 pub fn is_any<T>(_:&T) -> bool { true }
 
@@ -275,11 +323,19 @@ where
 }
 
 /// combinator map_err
-pub fn user_msg_err<'a,T:'a,P,R>(parser: P, msg: &'a str) -> impl Parser<'a,T,R>
+pub fn msg_err<'a,T:'a,P,R>(parser: P, msg: &'a str) -> impl Parser<'a,T,R>
 where
     P: Parser<'a,T,R>,
 {
     move |input| { parser.parse(input).map_err(|mut x|{x.user_msg.push(msg); x}) }
+}
+
+/// combinator map_err
+pub fn strerr<'a,T:'a,P,R>(parser: P) -> impl Parser<'a,T,R>
+where
+    P: Parser<'a,T,R>,
+{
+    move |input| { parser.parse(input).map_err(|mut x|{x.to_srt=true; x}) }
 }
 
 
@@ -304,6 +360,33 @@ where
     move |input| {
         p1.parse(input).and_then(|(next_input,r1)| { 
         p2.parse(next_input).map(|(next_input,r2)| (next_input,(r1,r2))) })
+    }
+}
+
+/// combinator or
+pub fn or<'a,T:'a,P1,P2,R1,R2>(p1:P1,p2:P2) -> impl Parser<'a,T,(Option<R1>,Option<R2>)>
+where
+    P1: Parser<'a,T,R1>,
+    P2: Parser<'a,T,R2>,
+{
+    move |input| {
+        let rp = p1.parse(input);
+        match rp {
+            Ok((next_input,r1)) => {
+                let rp = p2.parse(next_input);
+                match rp {
+                    Ok((next_input,r2)) => { return Ok((next_input,(Some(r1),Some(r2)))); },
+                    _                   => { return Ok((next_input,(Some(r1),None))); },
+                }
+            },
+            _  => {
+                let rp = p2.parse(input);
+                match rp {
+                    Ok((next_input,r2)) => { return Ok((next_input,(None,Some(r2)))); },
+                    Err(e)              => { return Err(e); },
+                }
+            },
+        }
     }
 }
 
@@ -389,12 +472,18 @@ where
         let mut result = Vec::new();
         let mut next_input1 = input;
         loop {
-            let Ok((next_input2,r)) = p.parse(next_input1) else { break; };
-            result.push(r);
-            if result.len()==count_max { break; } 
-            next_input1 = next_input2;
-        }
-        if result.is_empty() { Err(PErr::new(next_input1)) } else { Ok((next_input1, result)) }
+            match p.parse(next_input1) {
+                Ok((next_input2,r)) => {               
+                    result.push(r);
+                    next_input1 = next_input2;
+                    if result.len()==count_max { break; }  
+                },
+                Err(e) => { 
+                    if result.is_empty() { return Err(e); }
+                    break;
+                },
+        }}
+        Ok((next_input1, result))
     }
 }
 
@@ -407,11 +496,17 @@ where
         let mut result = Vec::new();
         let mut next_input1 = input;
         loop {
-            let Ok((next_input2,r)) = p.parse(next_input1) else { break; };
-            result.push(r);
-            next_input1 = next_input2;
-        }
-        if result.len()<count_min { Err(PErr::new(next_input1)) } else { Ok((next_input1, result)) }
+            match p.parse(next_input1) {
+                Ok((next_input2,r)) => {
+                    result.push(r);            
+                    next_input1 = next_input2;
+                },
+                Err(e) => { 
+                    if result.len()<count_min { return Err(e); }
+                    break 
+                }, 
+        }}
+        Ok((next_input1, result))
     }
 }
 
@@ -424,12 +519,18 @@ where
         let mut result = Vec::new();
         let mut next_input1 = input;
         loop {
-            let Ok((next_input2,r)) = p.parse(next_input1) else { break; };
-            result.push(r);            
-            if result.len()==range.1 { break; }
-            next_input1 = next_input2;
-        }
-        if result.len()<range.0 { Err(PErr::new(next_input1)) } else { Ok((next_input1, result)) }
+            match p.parse(next_input1) {
+                Ok((next_input2,r)) => {
+                    result.push(r);            
+                    next_input1 = next_input2;
+                    if result.len()==range.1 { break; }
+                },
+                Err(e) => { 
+                    if result.len()<range.0 { return Err(e); } 
+                    break;
+                },
+        }}
+        Ok((next_input1, result))
     }
 }
 
@@ -442,12 +543,15 @@ where
         let mut result = Vec::new();
         let mut next_input1 = input;
         loop {
-            let Ok((next_input2,r)) = p.parse(next_input1) else { break; };
-            result.push(r);
-            if result.len()==count_exact { break; }
-            next_input1 = next_input2;
-        }
-        if result.len()<count_exact { Err(PErr::new(next_input1)) } else { Ok((next_input1, result)) }
+            match p.parse(next_input1) {
+                Ok((next_input2,r)) => {
+                    result.push(r);
+                    next_input1 = next_input2;
+                    if result.len()==count_exact { break; }
+                },
+                Err(e) => { return Err(e); },
+        }}    
+        Ok((next_input1, result))
     }
 }
 
@@ -460,27 +564,15 @@ where
         let mut result = Vec::new();
         let mut next_input1 = input;
         loop {
-            let Ok((next_input2,r)) = p.parse(next_input1) else { break; };
-            result.push(r);
-            next_input1 = next_input2;
-        }
-        if result.is_empty() { Err(PErr::new(next_input1)) } else { Ok((next_input1, result)) }
-    }
-}
-
-/// combinator `more zero`. Attention! - rezult is always Ok.
-pub fn more_zero<'a,T:'a,P,R>(p:P) -> impl Parser<'a,T,Vec<R>>
-where
-    P: Parser<'a,T,R>,
-{   
-    move |input: &'a[T]| {
-        let mut result = Vec::new();
-        let mut next_input1 = input;
-        loop {
-            let Ok((next_input2,r)) = p.parse(next_input1) else { break; };
-            result.push(r);
-            next_input1 = next_input2;
-        }
+            match p.parse(next_input1) {
+                Ok((next_input2,r)) => {   
+                    result.push(r);
+                    next_input1 = next_input2; },
+                Err(e) => { 
+                    if result.is_empty() { return Err(e); }
+                    break; 
+                },
+        }}
         Ok((next_input1, result))
     }
 }
@@ -535,6 +627,15 @@ where
     fmap(pair(p1,p2),f)
 }
 
+/// combinator and_then
+pub fn or_then<'a,T:'a,P1,P2,R1,R2,F,R3>(p1:P1,p2:P2,f:F) -> impl Parser<'a,T,R3>
+where
+    P1: Parser<'a,T,R1>,
+    P2: Parser<'a,T,R2>,
+    F: Fn((Option<R1>,Option<R2>)) -> R3 + Copy,
+{
+    fmap(or(p1,p2),f)
+}
 
 /// combinator separated list
 ///1) h, h, h, h hh
@@ -551,13 +652,15 @@ where
     Ps:  Parser<'a,T,Rs>,
     Ple: Parser<'a,T,Re>,
 {
-    map(and_then(more_zero(left(elem,sep)), last_elem.option(), 
-        |(mut a,b)| { 
-           if let Some(r) = b { a.push(r); }
-           a 
-        }),
-        |(i,r)| { if r.is_empty() { Err(PErr::new(i)) } else { Ok((i,r)) } }
-    )   
+    or_then(more(left(elem,sep)), last_elem, 
+        |(a,b)| {
+           match (a,b) {
+               (Some(mut a), Some(b)) => { a.push(b); a },
+               (Some(a), None)        =>  a, 
+               (None, Some(b))        => { let r=vec![b]; r },
+               _                      => { panic!("newer do sep_list!"); },
+           }  
+    })   
 }
 
 /// just usefull function
@@ -577,4 +680,6 @@ pub fn fflaten<T:Copy>(v:Vec<&[T]>) -> Vec<T> {
     v.into_iter().flatten().copied().collect::<Vec<T>>()
 }
 
-
+pub fn print_type_of<T>(_: &T) {
+    println!("{}", std::any::type_name::<T>());
+}
