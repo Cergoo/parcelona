@@ -21,17 +21,22 @@ pub fn is_space_noeol(i:&u8) -> bool { !(is_eol(i)) && is_space(i) }
 #[inline]
 pub fn is_alpha(i:&u8) -> bool { (*i >= 0x41 && *i <= 0x5A) || (*i >= 0x61 && *i <= 0x7A) }
 
-#[inline]
-pub fn is_alpha_upper(i:&u8) -> bool { *i >= 0x41 && *i <= 0x5A }
+pub const ALPHA_UPPER:(u8,u8) = (65,90);
+pub const ALPHA_LOWER:(u8,u8) = (97,122);
+pub const DEC_DIGIT:(u8,u8)   = (48,57);
+
 
 #[inline]
-pub fn is_alpha_lower(i:&u8) -> bool { *i >= 0x41 && *i <= 0x5A }
+pub fn is_alpha_upper(i:&u8) -> bool { *i >= 65 && *i <= 90 }
+
+#[inline]
+pub fn is_alpha_lower(i:&u8) -> bool { *i >= 97 && *i <= 122 }
 
 #[inline]
 pub fn is_alphanum(i:&u8) -> bool { is_alpha(i) || is_dec_digit(i) }
 
 #[inline]
-pub fn is_dec_digit(i:&u8) -> bool { *i >= 0x30 && *i <= 0x39 }
+pub fn is_dec_digit(i:&u8) -> bool { *i >= 48 && *i <= 57 }
 
 #[inline]
 pub fn is_hex_digit(i:&u8) -> bool {

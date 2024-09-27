@@ -1,11 +1,15 @@
 extern crate parcelona;
 use parcelona::parser_combinators::{*};
 use parcelona::u8::{*};
-use std::str::from_utf8;
+use std::str::{from_utf8, Utf8Error};
 use std::error::Error;
+use std::default::Default;
+
 
 const DATA: &[u8] = 
 br#"<poet author="Byron" title="The Girl of Cadiz" date="1809">
+
+
 Oh never talk again to me
 Of northern climes and British ladies;
 It has not been your lot to see,
@@ -14,39 +18,18 @@ Although her eye be not of blue,
 Nor fair her locks, like English lasses,
 How far its own expressive hue
 The languid azure eye surpasses!
+
+
 </poet>"#;  
 
 #[derive(Debug)]
 struct Tag<'a> {
 	name: &'a str,
-	params: Vec<(&'a str,&'a str)>,
+	attributes: Vec<(&'a str,&'a str)>,
 	text: &'a str,
 }
 
-fn name_symbols(i:&u8) -> bool { 
-	*i == 45 || *i == 46 || *i == 95 || is_alphanum(i) 
-}
-
-// allowed character classes
-fn text_symbols(i:&[u8]) -> usize {
-	// one class
-	let smbl: &[u8] = &[92, 60, 62];   // \, <, > 
-	if !check_starts_with_any_element(smbl, i) { return 1; }
-  // second class
-	let escaped_smbl: &[&[u8]] = &[br#"\\"#, br#"\<"#, br#"\>"#,]; 
-	let c = check_starts_with_any_part(escaped_smbl, i);
-	c
-} 
-
-// allowed character classes
-fn value_symbols(i:&[u8]) -> usize {
-	// one class
-	let smbl: &[u8] = &[34];   // \, <, > 
-	if !check_starts_with_any_element(smbl, i) { return 1; }
-  0
-} 
   
-
 const OPEN_TAG_NOTFOUND:  &str = r#""<" opent tag not found"#;
 const CLOSE_TAG_NOTFOUND: &str = r#"">" close tag not found"#;
 const NAME_TAG_NOTFOUND:  &str = r#"name tag not found"#;
@@ -55,35 +38,56 @@ const END_TAG_NOTFOUND:   &str = r#"end tag not found"#;
 
 fn parse_tag(input: &[u8]) -> Result<Tag, Box<dyn Error + '_>> {
 
-	let space = seq(is_space);
-	let text = fmap(seq_ext(text_symbols), <[u8]>::trim_ascii);
-	let p_val = fmap(seq_ext(value_symbols), <[u8]>::trim_ascii).msg_err("error parse value of paramet");
+    let mut name: ClassOfSymbols<u8> = Default::default();
+    &name.range_enable.push(ALPHA_LOWER);
+    &name.range_enable.push(ALPHA_UPPER);
+    &name.range_enable.push(DEC_DIGIT);
+    &name.one_enable.push(45); // -
+    &name.one_enable.push(46); // .
+    &name.one_enable.push(95); // _
 
-	let open  = starts_with(b"<").msg_err(OPEN_TAG_NOTFOUND);
-	let close = starts_with(b">").msg_err(CLOSE_TAG_NOTFOUND);
-	let sep   = starts_with(b"=").msg_err(SEP_NOTFOUND);
-	let name  = between_opt(space, seq(name_symbols).msg_err(NAME_TAG_NOTFOUND), space);
-	let speech_mark  = starts_with(b"\"");
-	let param_value  = between(speech_mark, p_val, speech_mark).msg_err("err pars param value");
-	let params = sep_pair(name, sep, param_value).msg_err("err pars params").more().msg_err("err pars params more");
+    let mut value: ClassOfSymbols<u8> = Default::default();
+    &value.one_disable.push(34); // "
+		value.default_enable_one = true;
 
-   
-	let (input, (t_name,t_params)) = between(open, pair(name, params.msg_err("err pars params1")).msg_err("err pars pair"), close).msg_err("err pars first line").strerr().parse(input)?;
-	let (input, t_text) = text.parse(input)?;
-	let _ = between(open,between_opt(space, pair(any(b"/"), starts_with(t_name)), space),close)
-					.msg_err(END_TAG_NOTFOUND)
-					.strerr()
-					.parse(input)?;
+    let mut text: ClassOfSymbols<u8> = Default::default();
+    &text.one_disable.push(b'<');  // <
+    &text.one_disable.push(b'>');  // >
+    &text.one_disable.push(b'\\'); // \
+    &text.parts_enable.push(r#"\\"#.into());
+    &text.parts_enable.push(r#"\<"#.into());
+    &text.parts_enable.push(r#"\>"#.into());
+    text.default_enable_one = true;
 
-	let mut t_params_true = Vec::<(&str,&str)>::new(); 
-	for i in t_params {
-		t_params_true.push((from_utf8(i.0)?, from_utf8(i.1)?));
-	}
+    let space  = seq(is_space);
+    let open   = between_opt(space, starts_with(b"<"), space).msg_err(OPEN_TAG_NOTFOUND);
+	  let close  = between_opt(space, starts_with(b">"), space).msg_err(CLOSE_TAG_NOTFOUND);
+	  let sep    = starts_with(b"=").msg_err(SEP_NOTFOUND);
+	  let quotes = between_opt(space, starts_with(b"\""), space);
+    let name_parser  = between_opt(space, &name, space);
+		let value_parser = between(quotes, value.msg_err("value parse error1"), quotes).msg_err("value parse error");
+
+		let attrs = frmap(sep_pair(name_parser, sep, value_parser),|x|{Ok::<(&str, &str), Utf8Error>((from_utf8(x.0)?, from_utf8(x.1)?))})
+		    .msg_err("pars attr error")
+				.more()
+				.msg_err("pars attr more eror");
+
+  	let (input, (tag_name, tag_attrs)) = between(open, pair(name_parser, attrs), close)
+				.msg_err("first line pars eror")
+				.strerr()
+				.parse(input)?;
+
+	  let (input, tag_text) = fmap(text.msg_err("text parse error").strerr(), <[u8]>::trim_ascii).parse(input)?;
+
+	  let _ = between(open, pair(any(b"/"), starts_with(tag_name)), close)
+				.msg_err(END_TAG_NOTFOUND)
+				.strerr()
+				.parse(input)?;
 
 	Ok(Tag {
-		name: from_utf8(t_name)?,
-		params: t_params_true,
-		text: from_utf8(t_text)?,
+		name: from_utf8(tag_name)?,
+		attributes: tag_attrs,
+		text: from_utf8(tag_text)?,
 	})
 }
 

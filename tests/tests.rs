@@ -280,3 +280,39 @@ fn t_permut_part3() {
         }
     };
 }
+
+
+#[test]
+fn t_classo() { 
+    let input: &[u8] = b"true\"false";
+    let mut name: ClassOfSymbols<u8> = Default::default();
+    &name.range_enable.push(ALPHA_LOWER);
+    &name.range_enable.push(ALPHA_UPPER);
+    &name.range_enable.push(DEC_DIGIT);
+    &name.one_enable.push(45); // -
+    &name.one_enable.push(46); // .
+    &name.one_enable.push(95); // _
+    name.default_enable_one = false;
+
+    let r = name.msg_err("text parse error").parse(input).unwrap();
+    assert_eq!((b"\"false".as_slice(), b"true".as_slice()), r);
+}
+
+#[test]
+fn t_classo1() { 
+    let input: &[u8] = b"true\"false";
+    let mut name: ClassOfSymbols<u8> = Default::default();
+    &name.range_enable.push(ALPHA_LOWER);
+    &name.range_enable.push(ALPHA_UPPER);
+    &name.range_enable.push(DEC_DIGIT);
+    &name.one_enable.push(45); // -
+    &name.one_enable.push(46); // .
+    &name.one_enable.push(95); // _
+    name.default_enable_one = false;
+
+
+    //let p: Parser<u8,&[u8]> = &name;
+    let p = pair(&name,starts_with(b"\""));
+    let r = p.parse(input).unwrap();
+    assert_eq!((b"false".as_slice(), (b"true".as_slice(), b"\"".as_slice())), r);
+}

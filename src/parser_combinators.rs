@@ -1,16 +1,23 @@
 //!  Parcelona minimalistic elegance parser combinator library.
 //!
 use parcelona_macros_derive::{alt_impl,permut_impl};
-use std::{fmt,mem,default};
+use std::{fmt,mem,cmp,default,error};
 use bstr::ByteSlice;
 
 pub type ParseResult<'a,I,O> = std::result::Result<(&'a [I],O),PErr<'a,I>>;
+
+///
+#[derive(Debug,Clone)] 
+enum Msg<'a> {
+    Str(&'a str),
+    String(String),
+}
 
 /// type Error for parser
 #[derive(Debug,Clone)]
 pub struct PErr<'a,I> {
     input: &'a[I],
-    user_msg: Vec<&'a str>,
+    user_msg: Vec<Msg<'a>>,
     to_srt: bool,
 }
 
@@ -20,12 +27,12 @@ impl<'a,I> default::Default for PErr<'a,I> {
     }
 }
 
-impl<'a,I:'a+std::fmt::Debug> std::error::Error for PErr<'a,I> {}
+impl<'a,I:'a+std::fmt::Debug> error::Error for PErr<'a,I> {}
 
 impl<'a,I:'a> PErr<'a,I> {
     /// constructor of new PErr
     pub fn new(input: &'a[I]) -> Self {
-        Self { input: input, user_msg: Vec::<&str>::new(), to_srt: false, }
+        Self { input: input, user_msg: Vec::<Msg>::new(), to_srt: false, }
     } 
     /// set type to str for Display
     pub fn fmt_str(&mut self) { self.to_srt=true; }  
@@ -50,7 +57,7 @@ impl<'a,I:'a+fmt::Debug> fmt::Display for PErr<'a, I> {
     }
 }
 
-impl<'a,I:std::cmp::PartialEq> PartialEq for PErr<'a,I>  {
+impl<'a,I:cmp::PartialEq> PartialEq for PErr<'a,I>  {
     fn eq(&self, other: &Self) -> bool {
         self.input == other.input
     }
@@ -77,6 +84,39 @@ where
     F: Fn(&'a[I]) -> ParseResult<'a,I,O>+Copy,
 {
     fn parse(&self, input:&'a [I]) -> ParseResult<'a,I,O> {  self(input)  }
+}
+
+/// ClassOfSymbols it is an universal parser, alternative to seq_ext 
+#[derive(Debug,Clone,Default)]
+pub struct ClassOfSymbols<I> {
+    pub one_enable:    Vec<I>,
+    pub one_disable:   Vec<I>,
+    pub parts_enable:  Vec<Vec<I>>,
+    pub parts_disable: Vec<Vec<I>>,
+    pub range_enable:  Vec<(I,I)>,
+    pub range_disable: Vec<(I,I)>,
+    pub default_enable_one: bool,
+}
+
+impl<'a,I:'a+cmp::PartialEq+cmp::PartialOrd> Parser<'a,I,&'a[I]> for &ClassOfSymbols<I> {
+        fn parse(&self, input:&'a [I]) -> ParseResult<'a,I,&'a[I]> {
+        let mut new_input = input;
+        let mut c:usize = 0;
+        let mut inner_c:usize = c;
+        'outer: loop {  
+            inner_c = c;
+            if new_input.is_empty() { break; }
+            for i in &self.parts_enable  { if new_input.starts_with(&i) { new_input = &new_input[i.len()..]; c+=i.len(); } }
+            for i in &self.parts_disable { if new_input.starts_with(&i) { break 'outer; } }
+            for i in &self.range_enable  { if i.0<=new_input[0] && i.1>=new_input[0] { new_input = &new_input[1..]; c+=1; } }
+            for i in &self.range_disable { if i.0<=new_input[0] && i.1>=new_input[0] { break 'outer; } }
+            if self.one_enable.contains(&new_input[0])  { new_input = &new_input[1..]; c+=1; } 
+            if self.one_disable.contains(&new_input[0]) { break 'outer; }  
+            if self.default_enable_one { new_input = &new_input[1..]; c+=1; }
+            if inner_c==c { break; }
+        }
+        if c>0 { Ok(split_at_revers(input, c)) } else { Err(PErr::new(input)) }   
+    }
 }
 
 /// Alt trait combinator, it is implement for tuples default max 16 elements
@@ -313,6 +353,26 @@ where
     }
 }
 
+pub fn frmap<'a,T:'a,F,P,R1,R2,E:ToString>(parser: P, map_fn: F) -> impl Parser<'a,T,R2>
+where
+    P: Parser<'a,T,R1>,
+    F: Fn(R1) -> Result<R2,E> + Copy,
+{
+    move |input| {
+        let r = parser.parse(input)?;
+        match map_fn(r.1) {
+            Ok(rr) => Ok((r.0, rr)),
+            Err(e) => { 
+                let mut ne = PErr::new(r.0);
+                ne.user_msg.push(Msg::Str("Error frmap applying function to parsing result"));
+                ne.user_msg.push(Msg::String(e.to_string()));
+                ne.fmt_str();
+                Err(ne)
+            } 
+        }
+    }
+}
+
 /// combinator map
 pub fn map<'a,T:'a,F,P,R1,R2>(parser: P, map_fn: F) -> impl Parser<'a,T,R2>
 where
@@ -327,7 +387,7 @@ pub fn msg_err<'a,T:'a,P,R>(parser: P, msg: &'a str) -> impl Parser<'a,T,R>
 where
     P: Parser<'a,T,R>,
 {
-    move |input| { parser.parse(input).map_err(|mut x|{x.user_msg.push(msg); x}) }
+    move |input| { parser.parse(input).map_err(|mut x|{x.user_msg.push(Msg::Str(msg)); x}) }
 }
 
 /// combinator map_err
