@@ -43,6 +43,7 @@ This core of library and has parsers:
 - `seq_max`
 - `seq_min`
 - `seq_range`
+- `seq_ext`
 - `ClassOfSymbols`
 
 and has many parser combinators:
