@@ -59,21 +59,21 @@ fn parse_tag(input: &[u8]) -> Result<Tag, Box<dyn Error + '_>> {
 	let value_parser = between(quotes, value.msg_err("value parse error_1"), quotes).msg_err("value parse error");
 
 	let attrs = frmap(sep_pair(name_parser, sep, value_parser),|x|{Ok::<(&str, &str), Utf8Error>((from_utf8(x.0)?, from_utf8(x.1)?))})
-				.msg_err("pars attr error")
-				.more()
-				.msg_err("pars attr more eror");
+		.msg_err("pars attr error")
+		.more()
+		.msg_err("pars attr more eror");
 
 	let (input, (tag_name, tag_attrs)) = between(open, pair(name_parser, attrs), close)
-				.msg_err("first line pars eror")
-				.strerr()
-				.parse(input)?;
+		.msg_err("first line pars eror")
+		.strerr()
+		.parse(input)?;
 
 	let (input, tag_text) = fmap(text.msg_err("text parse error").strerr(), <[u8]>::trim_ascii).parse(input)?;
 
 	let _ = between(open, pair(any(b"/"), starts_with(tag_name)), close)
-				.msg_err(END_TAG_NOTFOUND)
-				.strerr()
-				.parse(input)?;
+		.msg_err(END_TAG_NOTFOUND)
+		.strerr()
+		.parse(input)?;
 
 	Ok(Tag {
 		name: from_utf8(tag_name)?,
