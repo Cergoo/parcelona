@@ -8,7 +8,7 @@ pub type ParseResult<'a,I,O> = std::result::Result<(&'a [I],O),PErr<'a,I>>;
 
 ///
 #[derive(Debug,Clone)] 
-enum Msg<'a> {
+pub enum Msg<'a> {
     Str(&'a str),
     String(String),
 }
@@ -36,6 +36,7 @@ impl<'a,I:'a> PErr<'a,I> {
     } 
     /// set type to str for Display
     pub fn fmt_str(&mut self) { self.to_srt=true; }  
+    pub fn user_msg_push(&mut self, m: Msg<'a>) { self.user_msg.push(m); }
 }
 
 impl<'a,I:'a+fmt::Debug> fmt::Display for PErr<'a, I> {
