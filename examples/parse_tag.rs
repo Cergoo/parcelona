@@ -39,7 +39,7 @@ fn parse_tag(input: &[u8]) -> Result<Tag, Box<dyn Error + '_>> {
 
 	let mut name: ClassOfSymbols<u8> = Default::default();
 	name.range_enable_push(ALPHA_NUM)
-	    .one_enable_push(&[45,46,95]); // - . _
+		.one_enable_push(&[45,46,95]); // - . _
 
 	let mut value: ClassOfSymbols<u8> = Default::default();
 	value.one_disable_push(&[34]) // "
