@@ -90,9 +90,34 @@ parts_enable_push(&mut self, p:&[&[I]])   -> &mut Self
 parts_disable_push(&mut self, p:&[&[I]])  -> &mut Self
 default_enable_one(&mut self, b:bool)     -> &mut Self
 ```
+если вы используете напрямую парсер `ClassOfSymbols` указывайте его по ссылке, как здесь
+```rust
+let name_parser  = between_opt(space, &name, space);
+```
+если используете в dot нотации, то ссыку указывать не надо методы сами берут его по ссылке
+```rust
+let name_parser  = between_opt(space, name.msg_err("pars name error!"), space);
+``` 
 
 
 ### Парсер комбинаторы
 
+...
 
+
+### Обработка ошибок
+
+если вам нужно провести отладочную трассировку либо просто добовить сообщение об ошибке к некоторому парсеру используйте парсер комбинатор `msg_err`
+```rust
+pub fn msg_err(parser: P, msg: &'a str) -> impl Parser<'a,T,R>
+where
+    P: Parser<'a,T,R>
+```
+если вы парсите `&str` но парсите как `&[u8]` будет одна неприятность при ошибке вам будет выводится участок данных на котором произошла ошибка парсинга в виде байтовой последовательности, чтобы побороть эту неприятность в конце цепочки перед самыи вызовом `.parse(input)?;` используйте парсер комбинатор `.strerr()` как здесь: 
+```rust
+let (input, (tag_name, tag_attrs)) = between(open, pair(name_parser, attrs), close)
+		.msg_err("first line pars eror")
+		.strerr()
+		.parse(input)?;
+```
 
