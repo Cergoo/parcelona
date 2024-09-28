@@ -37,16 +37,16 @@ const END_TAG_NOTFOUND:   &str = r#"end tag not found"#;
 
 fn parse_tag(input: &[u8]) -> Result<Tag, Box<dyn Error + '_>> {
 
-    let mut name: ClassOfSymbols<u8> = Default::default();
-    name.range_enable_push(ALPHA_NUM)
-        .one_enable_push(&[45,46,95]); // - . _
+	let mut name: ClassOfSymbols<u8> = Default::default();
+	name.range_enable_push(ALPHA_NUM)
+	    .one_enable_push(&[45,46,95]); // - . _
 
-    let mut value: ClassOfSymbols<u8> = Default::default();
-    value.one_disable_push(&[34]) // "
+	let mut value: ClassOfSymbols<u8> = Default::default();
+	value.one_disable_push(&[34]) // "
 		.default_enable_one(true);
 
-    let mut text: ClassOfSymbols<u8> = Default::default();
-    text.one_disable_push(br#"<>\"#)  // <
+	let mut text: ClassOfSymbols<u8> = Default::default();
+	text.one_disable_push(br#"<>\"#)  // <
 		.parts_enable_push(&[br#"\\"#, br#"\<"#, br#"\>"#])
 		.default_enable_one(true);   // if iten of slice is not disable then is enable
 
@@ -81,7 +81,6 @@ fn parse_tag(input: &[u8]) -> Result<Tag, Box<dyn Error + '_>> {
 		text: from_utf8(tag_text)?,
 	})
 }
-
 
 fn main() {
 	let r = parse_tag(DATA);
