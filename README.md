@@ -43,11 +43,13 @@ This core of library and has parsers:
 - `seq_max`
 - `seq_min`
 - `seq_range`
+- `ClassOfSymbols`
 
 and has many parser combinators:
 - `not (parser)`
 - `map (parser,Fn)`
 - `fmap (parser,Fn)`
+- `frmap (parser,Fn)`
 - `option (parser)`
 - `pair (parser,parser)`
 - `or (parser,parser)`
@@ -76,10 +78,6 @@ and has many parser combinators:
 ### u8
 This functions for `u8`
 
-### u8ext
-This parsers for `&[u8]`
-
 ### examples
-- See `tests`
+- see `examples`, cargo run --example parse_tag
 - [take_sni](https://github.com/Cergoo/take_sni) tls sni hand shake parsing
-

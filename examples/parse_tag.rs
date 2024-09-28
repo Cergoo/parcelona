@@ -39,25 +39,17 @@ const END_TAG_NOTFOUND:   &str = r#"end tag not found"#;
 fn parse_tag(input: &[u8]) -> Result<Tag, Box<dyn Error + '_>> {
 
     let mut name: ClassOfSymbols<u8> = Default::default();
-    &name.range_enable.push(ALPHA_LOWER);
-    &name.range_enable.push(ALPHA_UPPER);
-    &name.range_enable.push(DEC_DIGIT);
-    &name.one_enable.push(45); // -
-    &name.one_enable.push(46); // .
-    &name.one_enable.push(95); // _
+    name.range_enable_push(ALPHA_NUM)
+        .one_enable_push(&[45,46,95]); // - . _
 
     let mut value: ClassOfSymbols<u8> = Default::default();
-    &value.one_disable.push(34); // "
-		value.default_enable_one = true;
+    value.one_disable_push(&[34]) // "
+		     .default_enable_one(true);
 
     let mut text: ClassOfSymbols<u8> = Default::default();
-    &text.one_disable.push(b'<');  // <
-    &text.one_disable.push(b'>');  // >
-    &text.one_disable.push(b'\\'); // \
-    &text.parts_enable.push(r#"\\"#.into());
-    &text.parts_enable.push(r#"\<"#.into());
-    &text.parts_enable.push(r#"\>"#.into());
-    text.default_enable_one = true;
+    text.one_disable_push(br#"<>\"#)  // <
+        .parts_enable_push(&[br#"\\"#, br#"\<"#, br#"\>"#])
+        .default_enable_one(true);   // if iten of slice is not disable then is enable
 
     let space  = seq(is_space);
     let open   = between_opt(space, starts_with(b"<"), space).msg_err(OPEN_TAG_NOTFOUND);
@@ -65,7 +57,7 @@ fn parse_tag(input: &[u8]) -> Result<Tag, Box<dyn Error + '_>> {
 	  let sep    = starts_with(b"=").msg_err(SEP_NOTFOUND);
 	  let quotes = between_opt(space, starts_with(b"\""), space);
     let name_parser  = between_opt(space, &name, space);
-		let value_parser = between(quotes, value.msg_err("value parse error1"), quotes).msg_err("value parse error");
+		let value_parser = between(quotes, value.msg_err("value parse error_1"), quotes).msg_err("value parse error");
 
 		let attrs = frmap(sep_pair(name_parser, sep, value_parser),|x|{Ok::<(&str, &str), Utf8Error>((from_utf8(x.0)?, from_utf8(x.1)?))})
 		    .msg_err("pars attr error")

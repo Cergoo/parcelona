@@ -86,17 +86,58 @@ where
     fn parse(&self, input:&'a [I]) -> ParseResult<'a,I,O> {  self(input)  }
 }
 
-/// ClassOfSymbols it is an universal parser, alternative to seq_ext 
+/// ClassOfSymbols it is an universal parser, alternative to seq_ext
+/// for declarative programming style 
 #[derive(Debug,Clone,Default)]
 pub struct ClassOfSymbols<I> {
-    pub one_enable:    Vec<I>,
-    pub one_disable:   Vec<I>,
-    pub parts_enable:  Vec<Vec<I>>,
-    pub parts_disable: Vec<Vec<I>>,
-    pub range_enable:  Vec<(I,I)>,
-    pub range_disable: Vec<(I,I)>,
-    pub default_enable_one: bool,
+    one_enable:    Vec<I>,
+    one_disable:   Vec<I>,
+    parts_enable:  Vec<Vec<I>>,
+    parts_disable: Vec<Vec<I>>,
+    range_enable:  Vec<(I,I)>,
+    range_disable: Vec<(I,I)>,
+    /// if item of a slice is not disable then it is enable if `true`
+    /// or if item of a slice is not enable then it is disable if `false`
+    default_enable_one: bool,
 }
+
+impl<I:Copy> ClassOfSymbols<I> {
+    pub fn one_enable_push(&mut self, p:&[I]) -> &mut Self {
+        _=self.one_enable.splice(0..0, p.into_iter().copied());
+        self
+    }
+
+    pub fn one_disable_push(&mut self, p:&[I]) -> &mut Self {
+        _=self.one_disable.splice(0..0, p.into_iter().copied());
+        self
+    }
+
+    pub fn range_enable_push(&mut self, p:&[(I,I)]) -> &mut Self {
+        _=self.range_enable.splice(0..0, p.into_iter().copied());
+        self
+    }
+
+    pub fn range_disable_push(&mut self, p:&[(I,I)]) -> &mut Self {
+        _=self.range_disable.splice(0..0, p.into_iter().copied());
+        self
+    }
+
+    pub fn parts_enable_push(&mut self, p:&[&[I]]) -> &mut Self {
+        _=self.parts_enable.splice(0..0, p.into_iter().map(|x|x.into_iter().copied().collect::<Vec<_>>()));
+        self
+    }
+
+    pub fn parts_disable_push(&mut self, p:&[&[I]]) -> &mut Self {
+        _=self.parts_disable.splice(0..0, p.into_iter().map(|x|x.into_iter().copied().collect::<Vec<_>>()));
+        self
+    }
+
+    pub fn default_enable_one(&mut self, b:bool) -> &mut Self {
+        self.default_enable_one = b;
+        self
+    }
+}
+
 
 impl<'a,I:'a+cmp::PartialEq+cmp::PartialOrd> Parser<'a,I,&'a[I]> for &ClassOfSymbols<I> {
         fn parse(&self, input:&'a [I]) -> ParseResult<'a,I,&'a[I]> {
@@ -397,7 +438,6 @@ where
 {
     move |input| { parser.parse(input).map_err(|mut x|{x.to_srt=true; x}) }
 }
-
 
 /// combinator option - allways return Ok, no Err
 pub fn option<'a,T:'a,P,R>(parser: P) -> impl Parser<'a,T,Option<R>>
