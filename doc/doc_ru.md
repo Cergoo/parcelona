@@ -99,6 +99,27 @@ let name_parser  = between_opt(space, &name, space);
 let name_parser  = between_opt(space, name.msg_err("pars name error!"), space);
 ``` 
 
+Зачастую гибкость в определении не нужна, а нужна возможность создать `static` or `const` значение, для этого используйте `StaticClassOfSymbols`,
+это тоже самое что и `ClassOfSymbols` только `static`.
+
+```rust
+static t: StaticClassOfSymbols<u8> = StaticClassOfSymbols::new();
+```
+и названия методов схожи 
+```rust
+const fn new() -> Self
+const fn one_enable_set(mut self, p:&'static[I]) -> Self
+const fn one_disable_set(mut self, p:&'static[I]) -> Self 
+const fn parts_enable_set(mut self, p:&'static[&'static[I]]) -> Self 
+const fn parts_disable_set(mut self, p:&'static[&'static[I]]) -> Self 
+const fn range_enable_set(mut self, p:&'static[(I,I)]) -> Self 
+const fn range_disable_set(mut self, p:&'static[(I,I)]) -> Self 
+const fn default_enable_one(mut self, p:bool) -> Self
+```
+
+
+
+
 
 ### Парсер комбинаторы
 

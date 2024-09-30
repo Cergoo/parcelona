@@ -46,6 +46,7 @@ This core of library and has parsers:
 - `seq_range`
 - `seq_ext`
 - `ClassOfSymbols`
+- `StaticClassOfSymbols`
 
 and has many parser combinators:
 - `not (parser)`

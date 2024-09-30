@@ -87,6 +87,66 @@ where
     fn parse(&self, input:&'a [I]) -> ParseResult<'a,I,O> {  self(input)  }
 }
 
+#[derive(Debug,Clone,Default)]
+pub struct StaticClassOfSymbols<I: 'static> {
+    one_enable:    &'static[I],
+    one_disable:   &'static[I],
+    parts_enable:  &'static[&'static[I]],
+    parts_disable: &'static[&'static[I]],
+    range_enable:  &'static[(I,I)],
+    range_disable: &'static[(I,I)],
+    default_enable_one: bool,
+}
+
+impl<I:Copy> StaticClassOfSymbols<I> {
+    pub const fn new() -> Self {
+        StaticClassOfSymbols {    
+            one_enable:    &[],
+            one_disable:   &[],
+            parts_enable:  &[],
+            parts_disable: &[],
+            range_enable:  &[],
+            range_disable: &[],
+            default_enable_one: false,
+        }
+    }
+
+    pub const fn one_enable_set(mut self, p:&'static[I]) -> Self {
+        self.one_enable = p;
+        self
+    }
+
+    pub const fn one_disable_set(mut self, p:&'static[I]) -> Self {
+        self.one_disable = p;
+        self
+    }
+
+    pub const fn parts_enable_set(mut self, p:&'static[&'static[I]]) -> Self {
+        self.parts_enable = p;
+        self
+    }
+
+    pub const fn parts_disable_set(mut self, p:&'static[&'static[I]]) -> Self {
+        self.parts_disable = p;
+        self
+    }
+
+    pub const fn range_enable_set(mut self, p:&'static[(I,I)]) -> Self {
+        self.range_enable = p;
+        self
+    }
+
+    pub const fn range_disable_set(mut self, p:&'static[(I,I)]) -> Self {
+        self.range_disable = p;
+        self
+    }
+
+    pub const fn default_enable_one(mut self, p:bool) -> Self {
+        self.default_enable_one = p;
+        self
+    }
+}
+
 /// ClassOfSymbols it is an universal parser, alternative to seq_ext
 /// for declarative programming style 
 #[derive(Debug,Clone,Default)]
@@ -103,6 +163,7 @@ pub struct ClassOfSymbols<I> {
 }
 
 impl<I:Copy> ClassOfSymbols<I> {
+
     pub fn one_enable_push(&mut self, p:&[I]) -> &mut Self {
         _=self.one_enable.splice(0..0, p.into_iter().copied());
         self
@@ -111,6 +172,7 @@ impl<I:Copy> ClassOfSymbols<I> {
     pub fn one_disable_push(&mut self, p:&[I]) -> &mut Self {
         _=self.one_disable.splice(0..0, p.into_iter().copied());
         self
+        
     }
 
     pub fn range_enable_push(&mut self, p:&[(I,I)]) -> &mut Self {
@@ -137,8 +199,30 @@ impl<I:Copy> ClassOfSymbols<I> {
         self.default_enable_one = b;
         self
     }
+    
 }
 
+
+impl<'a,I:'a+cmp::PartialEq+cmp::PartialOrd> Parser<'a,I,&'a[I]> for &StaticClassOfSymbols<I> {
+    fn parse(&self, input:&'a [I]) -> ParseResult<'a,I,&'a[I]> {
+    let mut new_input = input;
+    let mut c:usize = 0;
+    let mut inner_c:usize = c;
+    'outer: loop {  
+        inner_c = c;
+        if new_input.is_empty() { break; }
+        for i in self.parts_enable  { if new_input.starts_with(&i) { new_input = &new_input[i.len()..]; c+=i.len(); } }
+        for i in self.parts_disable { if new_input.starts_with(&i) { break 'outer; } }
+        for i in self.range_enable  { if i.0<=new_input[0] && i.1>=new_input[0] { new_input = &new_input[1..]; c+=1; } }
+        for i in self.range_disable { if i.0<=new_input[0] && i.1>=new_input[0] { break 'outer; } }
+        if self.one_enable.contains(&new_input[0])  { new_input = &new_input[1..]; c+=1; } 
+        if self.one_disable.contains(&new_input[0]) { break 'outer; }  
+        if self.default_enable_one { new_input = &new_input[1..]; c+=1; }
+        if inner_c==c { break; }
+    }
+    if c>0 { Ok(split_at_revers(input, c)) } else { Err(PErr::new(input)) }   
+}
+}
 
 impl<'a,I:'a+cmp::PartialEq+cmp::PartialOrd> Parser<'a,I,&'a[I]> for &ClassOfSymbols<I> {
         fn parse(&self, input:&'a [I]) -> ParseResult<'a,I,&'a[I]> {

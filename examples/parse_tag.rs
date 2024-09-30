@@ -35,6 +35,11 @@ const NAME_TAG_NOTFOUND:  &str = r#"name tag not found"#;
 const SEP_NOTFOUND:       &str = r#""=" not found"#;
 const END_TAG_NOTFOUND:   &str = r#"end tag not found"#;
 
+static TEXT: StaticClassOfSymbols<u8> = StaticClassOfSymbols::<u8>::new()
+	.one_disable_set(br#"<>\"#)
+	.parts_enable_set(&[br#"\\"#, br#"\<"#, br#"\>"#])
+	.default_enable_one(true); // if iten of slice is not disable then is enable
+
 fn parse_tag(input: &[u8]) -> Result<Tag, Box<dyn Error + '_>> {
 
 	let mut name: ClassOfSymbols<u8> = Default::default();
@@ -44,11 +49,6 @@ fn parse_tag(input: &[u8]) -> Result<Tag, Box<dyn Error + '_>> {
 	let mut value: ClassOfSymbols<u8> = Default::default();
 	value.one_disable_push(&[34]) // "
 		.default_enable_one(true);
-
-	let mut text: ClassOfSymbols<u8> = Default::default();
-	text.one_disable_push(br#"<>\"#)  // <
-		.parts_enable_push(&[br#"\\"#, br#"\<"#, br#"\>"#])
-		.default_enable_one(true);   // if iten of slice is not disable then is enable
 
 	let space  = seq(is_space);
 	let open   = between_opt(space, starts_with(b"<"), space).msg_err(OPEN_TAG_NOTFOUND);
@@ -68,7 +68,7 @@ fn parse_tag(input: &[u8]) -> Result<Tag, Box<dyn Error + '_>> {
 		.strerr()
 		.parse(input)?;
 
-	let (input, tag_text) = fmap(text.msg_err("text parse error").strerr(), <[u8]>::trim_ascii).parse(input)?;
+	let (input, tag_text) = fmap(TEXT.msg_err("text parse error").strerr(), <[u8]>::trim_ascii).parse(input)?;
 
 	let _ = between(open, pair(any(b"/"), starts_with(tag_name)), close)
 		.msg_err(END_TAG_NOTFOUND)
