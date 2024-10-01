@@ -35,8 +35,8 @@ impl<'a,I:'a> PErr<'a,I> {
         Self { input: input, user_msg: Vec::<Msg>::new(), to_srt: false, }
     } 
     /// set type to str for Display
-    pub fn fmt_str(&mut self) { self.to_srt=true; }  
-    pub fn user_msg_push(&mut self, m: Msg<'a>) { self.user_msg.push(m); }
+    pub fn fmt_str(mut self) -> Self { self.to_srt=true; self }  
+    pub fn user_msg_push(mut self, m: Msg<'a>) -> Self { self.user_msg.push(m); self }
 }
 
 impl<'a,I:'a+fmt::Debug> fmt::Display for PErr<'a, I> {
@@ -209,7 +209,6 @@ impl<'a,I:'a+cmp::PartialEq+cmp::PartialOrd> Parser<'a,I,&'a[I]> for &StaticClas
     let mut c:usize = 0;
     let mut inner_c:usize = c;
     'outer: loop {  
-        inner_c = c;
         if new_input.is_empty() { break; }
         for i in self.parts_enable  { if new_input.starts_with(&i) { new_input = &new_input[i.len()..]; c+=i.len(); } }
         for i in self.parts_disable { if new_input.starts_with(&i) { break 'outer; } }
@@ -219,6 +218,7 @@ impl<'a,I:'a+cmp::PartialEq+cmp::PartialOrd> Parser<'a,I,&'a[I]> for &StaticClas
         if self.one_disable.contains(&new_input[0]) { break 'outer; }  
         if self.default_enable_one { new_input = &new_input[1..]; c+=1; }
         if inner_c==c { break; }
+        inner_c = c;
     }
     if c>0 { Ok(split_at_revers(input, c)) } else { Err(PErr::new(input)) }   
 }
@@ -230,7 +230,6 @@ impl<'a,I:'a+cmp::PartialEq+cmp::PartialOrd> Parser<'a,I,&'a[I]> for &ClassOfSym
         let mut c:usize = 0;
         let mut inner_c:usize = c;
         'outer: loop {  
-            inner_c = c;
             if new_input.is_empty() { break; }
             for i in &self.parts_enable  { if new_input.starts_with(&i) { new_input = &new_input[i.len()..]; c+=i.len(); } }
             for i in &self.parts_disable { if new_input.starts_with(&i) { break 'outer; } }
@@ -240,6 +239,7 @@ impl<'a,I:'a+cmp::PartialEq+cmp::PartialOrd> Parser<'a,I,&'a[I]> for &ClassOfSym
             if self.one_disable.contains(&new_input[0]) { break 'outer; }  
             if self.default_enable_one { new_input = &new_input[1..]; c+=1; }
             if inner_c==c { break; }
+            inner_c = c;
         }
         if c>0 { Ok(split_at_revers(input, c)) } else { Err(PErr::new(input)) }   
     }
@@ -489,10 +489,10 @@ where
         match map_fn(r.1) {
             Ok(rr) => Ok((r.0, rr)),
             Err(e) => { 
-                let mut ne = PErr::new(r.0);
-                ne.user_msg.push(Msg::Str("Error frmap applying function to parsing result"));
-                ne.user_msg.push(Msg::String(e.to_string()));
-                ne.fmt_str();
+                let ne = PErr::new(r.0)
+                .user_msg_push(Msg::Str("Error frmap applying function to parsing result"))
+                .user_msg_push(Msg::String(e.to_string()))
+                .fmt_str();
                 Err(ne)
             } 
         }

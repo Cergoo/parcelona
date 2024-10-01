@@ -23,10 +23,10 @@ The languid azure eye surpasses!
 </poet>"#;  
 
 #[derive(Debug)]
-struct Tag<'a> {
-	name: &'a str,
-	attributes: Vec<(&'a str,&'a str)>,
-	text: &'a str,
+pub struct Tag<'a> {
+	pub name: &'a str,
+	pub attributes: Vec<(&'a str,&'a str)>,
+	pub text: &'a str,
 }
 
 const OPEN_TAG_NOTFOUND:  &str = r#""<" opent tag not found"#;
@@ -55,7 +55,7 @@ fn parse_tag(input: &[u8]) -> Result<Tag, Box<dyn Error + '_>> {
 	let close  = between_opt(space, starts_with(b">"), space).msg_err(CLOSE_TAG_NOTFOUND);
 	let sep    = starts_with(b"=").msg_err(SEP_NOTFOUND);
 	let quotes = between_opt(space, starts_with(b"\""), space);
-	let name_parser  = between_opt(space, &name, space);
+	let name_parser  = between_opt(space, &name, space).msg_err(NAME_TAG_NOTFOUND);
 	let value_parser = between(quotes, value.msg_err("value parse error_1"), quotes).msg_err("value parse error");
 
 	let attrs = frmap(sep_pair(name_parser, sep, value_parser),|x|{Ok::<(&str, &str), Utf8Error>((from_utf8(x.0)?, from_utf8(x.1)?))})

@@ -305,3 +305,30 @@ fn t_classo1() {
     let r = p.parse(input).unwrap();
     assert_eq!((b"false".as_slice(), (b"true".as_slice(), b"\"".as_slice())), r);
 }
+
+
+#[test]
+fn t_ffun() { 
+    fn ft(input: &[u8]) -> ParseResult<u8,&[u8]> {
+        Ok((input, b"test"))
+    }
+
+    let input: &[u8] = b"truefalse";
+
+    let p = pair(ft,starts_with(b"true"));
+    let r = p.parse(input).unwrap();
+    assert_eq!((b"false".as_slice() ,(b"test".as_slice(), b"true".as_slice())), r);
+}
+
+#[test]
+fn t_ffun_alt() { 
+    fn ft(input: &[u8]) -> ParseResult<u8,&[u8]> {
+        Ok((input, b"test"))
+    }
+
+    let input: &[u8] = b"truefalse";
+
+    let p = (ft,starts_with(b"true")).alt();
+    let r = p.parse(input).unwrap();
+    assert_eq!((b"truefalse".as_slice(), b"test".as_slice()), r);
+}
