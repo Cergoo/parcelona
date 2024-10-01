@@ -84,3 +84,4 @@ This functions for `u8`
 ### examples
 - see `examples`, cargo run --example parse_tag
 - [take_sni](https://github.com/Cergoo/take_sni) tls sni hand shake parsing
+- [tag_parser](https://github.com/Cergoo/tag_parser) parse tags like html
