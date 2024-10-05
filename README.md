@@ -3,7 +3,7 @@
 minimalistic elegant parser combinators library
 - full zero copy
 - parsing over &[T] 
-- no have partial parsing
+- check error end of data `e.is_eod()`
 
 
 ```rust

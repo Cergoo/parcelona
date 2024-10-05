@@ -18,12 +18,14 @@ pub enum Msg<'a> {
 pub struct PErr<'a,I> {
     input: &'a[I],
     user_msg: Vec<Msg<'a>>,
-    to_srt: bool,
+    to_srt: bool,    
+/// set true if reason error parsing  it is end of data
+    end_of_data:bool,          
 }
 
 impl<'a,I> default::Default for PErr<'a,I> {
     fn default() -> Self {
-        Self { input: &[], user_msg: Vec::new(), to_srt: false, }
+        Self { input: &[], user_msg: Vec::new(), to_srt: false, end_of_data: false, }
     }
 }
 
@@ -32,11 +34,16 @@ impl<'a,I:'a+std::fmt::Debug> error::Error for PErr<'a,I> {}
 impl<'a,I:'a> PErr<'a,I> {
     /// constructor of new PErr
     pub fn new(input: &'a[I]) -> Self {
-        Self { input: input, user_msg: Vec::<Msg>::new(), to_srt: false, }
+        Self { input: input, user_msg: Vec::<Msg>::new(), to_srt: false, end_of_data: false, }
     } 
     /// set type to str for Display
     pub fn fmt_str(mut self) -> Self { self.to_srt=true; self }  
     pub fn user_msg_push(mut self, m: Msg<'a>) -> Self { self.user_msg.push(m); self }
+    pub fn set_eod(mut self) -> Self { self.end_of_data=true; self }
+    /// get last input from error
+    pub fn get_input(&self) -> &'a[I] { self.input }
+    /// set true if reason error parsing  it is end of data
+    pub fn is_eod(&self) -> bool { self.end_of_data }
 }
 
 impl<'a,I:'a+fmt::Debug> fmt::Display for PErr<'a, I> {
@@ -91,7 +98,7 @@ where
 pub struct StaticClassOfSymbols<I: 'static> {
     one_enable:    &'static[I],
     one_disable:   &'static[I],
-    parts_enable:  &'static[&'static[I]],
+    parts_enable:  (&'static[&'static[I]], usize),
     parts_disable: &'static[&'static[I]],
     range_enable:  &'static[(I,I)],
     range_disable: &'static[(I,I)],
@@ -103,7 +110,7 @@ impl<I:Copy> StaticClassOfSymbols<I> {
         StaticClassOfSymbols {    
             one_enable:    &[],
             one_disable:   &[],
-            parts_enable:  &[],
+            parts_enable:  (&[], 0),
             parts_disable: &[],
             range_enable:  &[],
             range_disable: &[],
@@ -122,7 +129,13 @@ impl<I:Copy> StaticClassOfSymbols<I> {
     }
 
     pub const fn parts_enable_set(mut self, p:&'static[&'static[I]]) -> Self {
-        self.parts_enable = p;
+        let mut max:usize = 0;
+        let mut i:usize = 0;
+        while i<p.len() {
+            if p[i].len()>max { max = p[i].len() } 
+            i+=1;
+        }
+        self.parts_enable = (p,max);
         self
     }
 
@@ -153,7 +166,7 @@ impl<I:Copy> StaticClassOfSymbols<I> {
 pub struct ClassOfSymbols<I> {
     one_enable:    Vec<I>,
     one_disable:   Vec<I>,
-    parts_enable:  Vec<Vec<I>>,
+    parts_enable:  (Vec<Vec<I>>,usize),
     parts_disable: Vec<Vec<I>>,
     range_enable:  Vec<(I,I)>,
     range_disable: Vec<(I,I)>,
@@ -186,7 +199,8 @@ impl<I:Copy> ClassOfSymbols<I> {
     }
 
     pub fn parts_enable_push(&mut self, p:&[&[I]]) -> &mut Self {
-        _=self.parts_enable.splice(0..0, p.into_iter().map(|x|x.into_iter().copied().collect::<Vec<_>>()));
+        _=self.parts_enable.0.splice(0..0, p.into_iter().map(|x|x.into_iter().copied().collect::<Vec<_>>()));
+        for i in p { if i.len()>self.parts_enable.1 { self.parts_enable.1 = i.len() } }
         self
     }
 
@@ -210,7 +224,7 @@ impl<'a,I:'a+cmp::PartialEq+cmp::PartialOrd> Parser<'a,I,&'a[I]> for &StaticClas
     let mut inner_c:usize = c;
     'outer: loop {  
         if new_input.is_empty() { break; }
-        for i in self.parts_enable  { if new_input.starts_with(&i) { new_input = &new_input[i.len()..]; c+=i.len(); } }
+        for i in self.parts_enable.0{ if new_input.starts_with(&i) { new_input = &new_input[i.len()..]; c+=i.len(); } }
         for i in self.parts_disable { if new_input.starts_with(&i) { break 'outer; } }
         for i in self.range_enable  { if i.0<=new_input[0] && i.1>=new_input[0] { new_input = &new_input[1..]; c+=1; } }
         for i in self.range_disable { if i.0<=new_input[0] && i.1>=new_input[0] { break 'outer; } }
@@ -220,9 +234,11 @@ impl<'a,I:'a+cmp::PartialEq+cmp::PartialOrd> Parser<'a,I,&'a[I]> for &StaticClas
         if inner_c==c { break; }
         inner_c = c;
     }
-    if c>0 { Ok(split_at_revers(input, c)) } else { Err(PErr::new(input)) }   
-}
-}
+    if c>0 { Ok(split_at_revers(input, c)) } else { 
+        let r = PErr::new(input); 
+        if input.len()<self.parts_enable.1 || input.is_empty() { Err(r.set_eod()) } else { Err(r) } 
+    }   
+}}
 
 impl<'a,I:'a+cmp::PartialEq+cmp::PartialOrd> Parser<'a,I,&'a[I]> for &ClassOfSymbols<I> {
         fn parse(&self, input:&'a [I]) -> ParseResult<'a,I,&'a[I]> {
@@ -231,7 +247,7 @@ impl<'a,I:'a+cmp::PartialEq+cmp::PartialOrd> Parser<'a,I,&'a[I]> for &ClassOfSym
         let mut inner_c:usize = c;
         'outer: loop {  
             if new_input.is_empty() { break; }
-            for i in &self.parts_enable  { if new_input.starts_with(&i) { new_input = &new_input[i.len()..]; c+=i.len(); } }
+            for i in &self.parts_enable.0{ if new_input.starts_with(&i) { new_input = &new_input[i.len()..]; c+=i.len(); } }
             for i in &self.parts_disable { if new_input.starts_with(&i) { break 'outer; } }
             for i in &self.range_enable  { if i.0<=new_input[0] && i.1>=new_input[0] { new_input = &new_input[1..]; c+=1; } }
             for i in &self.range_disable { if i.0<=new_input[0] && i.1>=new_input[0] { break 'outer; } }
@@ -241,9 +257,11 @@ impl<'a,I:'a+cmp::PartialEq+cmp::PartialOrd> Parser<'a,I,&'a[I]> for &ClassOfSym
             if inner_c==c { break; }
             inner_c = c;
         }
-        if c>0 { Ok(split_at_revers(input, c)) } else { Err(PErr::new(input)) }   
-    }
-}
+        if c>0 { Ok(split_at_revers(input, c)) } else { 
+            let r = PErr::new(input); 
+            if input.len()<self.parts_enable.1 || input.is_empty() { Err(r.set_eod()) } else { Err(r) } 
+        }   
+}}
 
 /// Alt trait combinator, it is implement for tuples default max 16 elements
 /// You can set cargo.toml flag `feature = "alt_tuple_32"` for up to tuple max 32 elements or `feature = "alt_tuple_64"` for up to tuple max 64 elements
@@ -322,6 +340,7 @@ pub fn data_end<'a,T>(a:&'a[T]) -> Result<(&[T],&[T]), PErr<'a,T>> {
 /// parser 'any'
 pub fn any<'a,T:'a+Eq+Clone>(pattern: &'a[T]) -> impl Parser<'a,T,&'a[T]> {
     move |input:&'a[T]| { 
+        if input.is_empty() { return Err(PErr::new(input).set_eod()); }
         if check_starts_with_any_element(pattern, input) { Ok(split_at_revers(input, 1)) } 
         else { Err(PErr::new(input)) }
     }
@@ -330,19 +349,21 @@ pub fn any<'a,T:'a+Eq+Clone>(pattern: &'a[T]) -> impl Parser<'a,T,&'a[T]> {
 /// parser 'starts_with'
 pub fn starts_with<'a,T:'a+Eq+Clone>(pattern: &'a[T]) -> impl Parser<'a,T,&'a[T]> {
     move |input:&'a[T]| { 
-        if input.starts_with(pattern) {
-           return  Ok(split_at_revers(input, pattern.len()));
-        } 
-        Err(PErr::new(input)) 
+        let n = pattern.len();
+        if input.len() < n       { return Err(PErr::new(input).set_eod()); }
+        if pattern == &input[..n] { Ok(split_at_revers(input, n)) } else { Err(PErr::new(input)) }
     }
 }
 
 ///  parser 'starts_with_any'
 pub fn starts_with_any<'a,T:'a+Eq+Clone>(patterns: &'a[&'a[T]]) -> impl Parser<'a,T,&'a[T]> {
+    let mut max:usize = 0;
+    for i in patterns { if i.len()>max { max = i.len() } }
     move |input:&'a[T]| {
         let l = check_starts_with_any_part(patterns, input);
         if l>0 { return  Ok(split_at_revers(input, l)); }
-        Err(PErr::new(input))
+        let r = PErr::new(input);
+        if max>input.len() { Err(r.set_eod()) } else { Err(r) }
     }
 }
 
@@ -364,12 +385,12 @@ pub fn seq_max<'a,P,T:'a+Eq+Clone>(p: P, count_max:usize) -> impl Parser<'a,T,&'
 where
     P: Fn(& T) -> bool+Copy+'a,
 {
-     move |input:&'a[T]| {  
-         let mut c:usize = 0;    
-         for i in input { if c<count_max&&p(i) {c+=1;} else {break;} }
-         if c>0 { return Ok(split_at_revers(input, c)); }
-         Err(PErr::new(input))
-     }
+    move |input:&'a[T]| {  
+        if input.is_empty() { return Err(PErr::new(input).set_eod()); }
+        let mut c:usize = 0;    
+        for i in input { if c<count_max&&p(i) {c+=1;} else {break;} }
+        if c>0 { Ok(split_at_revers(input, c)) } else { Err(PErr::new(input)) }
+    }
 }
 
 /// parser `sequence minimum`
@@ -377,11 +398,12 @@ pub fn seq_min<'a,P,T:'a+Eq+Clone>(p: P, count_min:usize) -> impl Parser<'a,T,&'
 where
     P: Fn(& T) -> bool+Copy+'a,
 {
-     move |input:&'a[T]| {  
-         let mut c:usize = 0;    
-         for i in input { if p(i) {c+=1;} else {break;} }
-         if c<count_min { Err(PErr::new(input)) } else { Ok(split_at_revers(input, c)) } 
-     }
+    move |input:&'a[T]| {
+        if input.len()<count_min { return Err(PErr::new(input).set_eod()); }
+        let mut c:usize = 0;    
+        for i in input { if p(i) {c+=1;} else {break;} }
+        if c<count_min { Err(PErr::new(input)) } else { Ok(split_at_revers(input, c)) } 
+    }
 }
 
 /// parser `sequence range`
@@ -389,11 +411,12 @@ pub fn seq_range<'a,P,T:'a+Eq+Clone>(p: P, range:(usize,usize)) -> impl Parser<'
 where
     P: Fn(& T) -> bool+Copy+'a,
 {
-     move |input:&'a[T]| {  
-         let mut c:usize = 0;    
-         for i in input { if c<range.1&&p(i) {c+=1;} else {break;} }
-         if c<range.0 { Err(PErr::new(input)) } else { Ok(split_at_revers(input, c)) } 
-     }
+    move |input:&'a[T]| {  
+        if input.len()<range.0 { return Err(PErr::new(input).set_eod()); }
+        let mut c:usize = 0;    
+        for i in input { if c<range.1&&p(i) {c+=1;} else {break;} }         
+        if c<range.0 { Err(PErr::new(input)) } else { Ok(split_at_revers(input, c)) } 
+    }
 }
 
 /// parser `sequence exact`
@@ -401,11 +424,12 @@ pub fn seq_exact<'a,P,T:'a+Eq+Clone>(p: P, count_exact:usize) -> impl Parser<'a,
 where
     P: Fn(& T) -> bool+Copy+'a,
 {
-     move |input:&'a[T]| {  
-         let mut c:usize = 0;    
-         for i in input { if c<count_exact&&p(i) {c+=1;} else {break;} }
-         if c<count_exact { Err(PErr::new(input)) } else { Ok(split_at_revers(input, c)) } 
-     }
+    move |input:&'a[T]| {  
+        if input.len()<count_exact { return Err(PErr::new(input).set_eod()); }
+        let mut c:usize = 0;    
+        for i in input { if c<count_exact&&p(i) {c+=1;} else {break;} }
+        if c<count_exact { Err(PErr::new(input)) } else { Ok(split_at_revers(input, c)) } 
+    }
 }
 
 /// parser `sequence`
@@ -413,11 +437,12 @@ pub fn seq<'a,P,T:'a+Eq+Clone>(p: P) -> impl Parser<'a,T,&'a[T]>
 where
     P: Fn(& T) -> bool+Copy+'a,
 {
-     move |input:&'a[T]| {  
-         let mut c:usize = 0;    
-         for i in input { if p(i) {c+=1;} else {break;} }
-         if c<1 { Err(PErr::new(input)) } else { Ok(split_at_revers(input, c)) } 
-     }
+    move |input:&'a[T]| {  
+        if input.is_empty() { return Err(PErr::new(input).set_eod()); }
+        let mut c:usize = 0;    
+        for i in input { if p(i) {c+=1;} else {break;} }
+        if c<1 { Err(PErr::new(input)) } else { Ok(split_at_revers(input, c)) } 
+    }
 }
 
 /// parser `sequence extendet`
@@ -425,7 +450,7 @@ pub fn seq_ext<'a,P,T:'a+Eq+Clone>(p: P) -> impl Parser<'a,T,&'a[T]>
 where
     P: Fn(& [T]) -> usize+Copy+'a,
 {
-     move |input:&'a[T]| {     
+    move |input:&'a[T]| {     
         let mut new_input = input;
         loop {
             let l = p(new_input); 
@@ -434,7 +459,7 @@ where
         } 
         let c = input.len() - new_input.len();
         if c==0 { Err(PErr::new(input)) } else { Ok(split_at_revers(input, c)) } 
-     }
+    }
 }
 
 #[inline]
@@ -856,7 +881,7 @@ pub fn split_at_revers<T>(input: &[T], count: usize) -> (&[T], &[T]) {
 
 /// just read record
 pub fn take_record<'a,T>(b: &'a[T], l: usize) -> Result<(&[T], &[T]), PErr<'a,T>> {
-	if b.len() < l { return Err(PErr::new(b)); }
+	if b.len() < l { return Err(PErr::new(b).set_eod()); }
 	Ok(split_at_revers(b, l))
 }
 

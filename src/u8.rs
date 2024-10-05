@@ -72,49 +72,48 @@ pub fn to_upperrcase(a: u8) -> u8 { if is_alpha_lower(&a) { a - 32 } else { a } 
 
 // read only len Big Endian
 pub fn take_len_be_u8(b: &[u8]) -> Result<(&[u8], usize), PErr<u8>> {
-    if b.is_empty() { return Err(PErr::new(b)); }
+    if b.is_empty() { return Err(PErr::new(b).set_eod()); }
     Ok((&b[1..], b[0] as usize))
 }
 
 // read only len Big Endian
 pub fn take_len_be_u16(b: &[u8]) -> Result<(&[u8], usize), PErr<u8>> {
-	if b.len() < 2 { return Err(PErr::new(b)); }
+	if b.len() < 2 { return Err(PErr::new(b).set_eod()); }
 	let (new_b, c) = split_at_revers(b, 2);
 	Ok((new_b, BE::read_u16(c) as usize))
 }
 
 // read only len Big Endian
 pub fn take_len_be_u24(b: &[u8]) -> Result<(&[u8], usize), PErr<u8>> {
-	if b.len() < 3 { return Err(PErr::new(b)); }
+	if b.len() < 3 { return Err(PErr::new(b).set_eod()); }
 	let (new_b, c) = split_at_revers(b, 3);
 	Ok((new_b, BE::read_u24(c) as usize))
 }
 
 // read only len Big Endian
 pub fn take_len_be_u32(b: &[u8]) -> Result<(&[u8], usize), PErr<u8>> {
-	if b.len() < 4 { return Err(PErr::new(b)); }
+	if b.len() < 4 { return Err(PErr::new(b).set_eod()); }
 	let (new_b, c) = split_at_revers(b, 4);
 	Ok((new_b, BE::read_u32(c) as usize))
 }
 
 // read only len Big Endian
 pub fn take_len_be_u48(b: &[u8]) -> Result<(&[u8], usize), PErr<u8>> {
-	if b.len() < 6 { return Err(PErr::new(b)); }
+	if b.len() < 6 { return Err(PErr::new(b).set_eod()); }
 	let (new_b, c) = split_at_revers(b, 6);
 	Ok((new_b, BE::read_u48(c) as usize))
 }
 
 // read only len Big Endian
 pub fn take_len_be_u64(b: &[u8]) -> Result<(&[u8], usize), PErr<u8>> {
-	if b.len() < 8 { return Err(PErr::new(b)); }
+	if b.len() < 8 { return Err(PErr::new(b).set_eod()); }
 	let (new_b, c) = split_at_revers(b, 8);
 	Ok((new_b, BE::read_u64(c) as usize))
 }
 
 /// read record Big Endian
 pub fn take_record_be_u8(b: &[u8]) -> Result<(&[u8], &[u8]), PErr<u8>> {
-	if b.len() < 2 { return Err(PErr::new(b)); }
-	if b.len() < b[0] as usize { return Err(PErr::new(b)); }
+	if b.len() < 2 || b.len() < b[0] as usize { return Err(PErr::new(b).set_eod()); }
 	Ok(split_at_revers(&b[1..], b[0] as usize))
 }
 

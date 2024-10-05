@@ -141,4 +141,7 @@ let (input, (tag_name, tag_attrs)) = between(open, pair(name_parser, attrs), clo
 	.strerr()
 	.parse(input)?;
 ```
-
+для проверки причины ошибки - был ли достигнут конец данных, у ошибки парсинга есть метод:
+```rust
+e.is_eod() -> bool
+```
